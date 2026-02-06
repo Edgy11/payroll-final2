@@ -1,58 +1,73 @@
 <?php
 /**
- * Payroll System - Create Payroll
- * Complete version with all database fields
+ * Payroll System - Batch Payroll Creation
+ * Create payroll for all employees in a department at once
  */
 
 require_once 'includes/config.php';
+require_once 'includes/auth.php';
 
-$pageTitle = 'Create Payroll';
+$pageTitle = 'Create Batch Payroll';
 $message = '';
 $messageType = '';
 
-// Handle form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Employee and Period Info
-    $employeeId = (int)$_POST['employee_id'];
-    $departmentId = (int)$_POST['department_id'];
-    $salaryId = (int)$_POST['salary_id'];
-    $payrollPeriod = sanitize($_POST['payroll_period']);
+$selectedDeptId = isset($_GET['department_id']) ? (int)$_GET['department_id'] : 0;
+
+// Handle batch form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_batch'])) {
+    $deptId = (int)$_POST['department_id'];
     $payrollMonth = sanitize($_POST['payroll_month']);
     $payrollYear = (int)$_POST['payroll_year'];
     $periodType = sanitize($_POST['period_type']);
+    $payrollPeriod = $payrollMonth . ' ' . $periodType . ', ' . $payrollYear;
     
-    // Salary Info
-    $basicSalary = (float)$_POST['basic_salary'];
-    $pera = (float)$_POST['pera'];
-    $grossPay = (float)$_POST['gross_pay'];
+    $employeeIds = $_POST['employee_ids'] ?? [];
+    $basicSalaries = $_POST['basic_salaries'] ?? [];
+    $peras = $_POST['peras'] ?? [];
+    $salaryIds = $_POST['salary_ids'] ?? [];
     
-    // Deductions
-    $wtax = (float)$_POST['wtax'];
-    $philhealth = (float)$_POST['philhealth'];
-    $gsis = (float)$_POST['gsis'];
-    $pagibig = (float)$_POST['pagibig'];
-    $provident = (float)$_POST['provident'];
-    $bcgeu = (float)$_POST['bcgeu'];
-    $nocgem = (float)$_POST['nocgem'];
-    $bacgem = (float)$_POST['bacgem'];
-    $otherDeductions = (float)$_POST['other_deductions'];
-    $totalDeductions = (float)$_POST['total_deductions'];
+    // Optional deductions (same for all or individual)
+    $provident = (float)($_POST['provident'] ?? 0);
+    $bcgeu = (float)($_POST['bcgeu'] ?? 0);
+    $nocgem = (float)($_POST['nocgem'] ?? 0);
+    $bacgem = (float)($_POST['bacgem'] ?? 0);
+    $otherDeductions = (float)($_POST['other_deductions'] ?? 0);
     
-    // Net Pay
-    $netPay = (float)$_POST['net_pay'];
-    $status = 'Active';
+    $successCount = 0;
+    $skipCount = 0;
+    $errorCount = 0;
     
-    // Check for duplicate payroll
-    $checkStmt = $conn->prepare("SELECT id FROM payroll WHERE employee_id = ? AND payroll_month = ? AND payroll_year = ? AND period_type = ?");
-    $checkStmt->bind_param("isis", $employeeId, $payrollMonth, $payrollYear, $periodType);
-    $checkStmt->execute();
-    $checkResult = $checkStmt->get_result();
-    
-    if ($checkResult->num_rows > 0) {
-        $message = 'Payroll record already exists for this employee and period!';
-        $messageType = 'warning';
-    } else {
-        // Insert payroll record
+    foreach ($employeeIds as $index => $empId) {
+        $empId = (int)$empId;
+        $basicSalary = (float)$basicSalaries[$index];
+        $pera = (float)$peras[$index];
+        $salaryId = (int)$salaryIds[$index];
+        
+        // Check for duplicate
+        $checkStmt = $conn->prepare("SELECT id FROM payroll WHERE employee_id = ? AND payroll_month = ? AND payroll_year = ? AND period_type = ?");
+        $checkStmt->bind_param("isis", $empId, $payrollMonth, $payrollYear, $periodType);
+        $checkStmt->execute();
+        $checkResult = $checkStmt->get_result();
+        
+        if ($checkResult->num_rows > 0) {
+            $skipCount++;
+            $checkStmt->close();
+            continue;
+        }
+        $checkStmt->close();
+        
+        // Calculate deductions
+        $gsis = $basicSalary * 0.09;
+        $philhealth = calculatePhilHealth($basicSalary);
+        $pagibig = calculatePagIbig($basicSalary);
+        $wtax = calculateWithholdingTax($basicSalary);
+        
+        $grossPay = $basicSalary + $pera;
+        $totalDeductions = $gsis + $philhealth + $pagibig + $wtax + $provident + $bcgeu + $nocgem + $bacgem + $otherDeductions;
+        $netPay = $grossPay - $totalDeductions;
+        $status = 'Draft';
+        
+        // Insert payroll
         $stmt = $conn->prepare("
             INSERT INTO payroll (
                 employee_id, department_id, salary_id, payroll_period, payroll_month, payroll_year, period_type,
@@ -63,47 +78,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ");
         
         $stmt->bind_param(
-            "iiissiisddddddddddddds",
-            $employeeId, $departmentId, $salaryId, $payrollPeriod, $payrollMonth, $payrollYear, $periodType,
+            "iiissisdddddddddddddds",
+            $empId, $deptId, $salaryId, $payrollPeriod, $payrollMonth, $payrollYear, $periodType,
             $basicSalary, $pera, $grossPay,
             $wtax, $philhealth, $gsis, $pagibig, $provident, $bcgeu, $nocgem, $bacgem, $otherDeductions,
             $totalDeductions, $netPay, $status
         );
         
         if ($stmt->execute()) {
-            $message = 'Payroll created successfully!';
-            $messageType = 'success';
-            // Redirect after 2 seconds
-            header("refresh:2;url=payroll.php");
+            $successCount++;
         } else {
-            $message = 'Error creating payroll: ' . $conn->error;
-            $messageType = 'danger';
+            $errorCount++;
         }
         $stmt->close();
     }
-    $checkStmt->close();
+    
+    if ($successCount > 0) {
+        $_SESSION['success_message'] = "Batch payroll created! $successCount record(s) created" . 
+            ($skipCount > 0 ? ", $skipCount skipped (already exists)" : "") .
+            ($errorCount > 0 ? ", $errorCount failed" : "");
+    } else {
+        $_SESSION['error_message'] = "No records created. " . 
+            ($skipCount > 0 ? "$skipCount already exist. " : "") .
+            ($errorCount > 0 ? "$errorCount failed." : "");
+    }
+    
+    header('Location: payroll.php?department_id=' . $deptId);
+    exit;
 }
 
-// Get employees with their salary information
-$employeesQuery = "
-    SELECT 
-        e.id, e.employee_id, e.first_name, e.last_name, e.middle_name, e.date_hired,
-        e.department_id,
-        d.department_name, d.department_code,
-        p.position_title, p.salary_grade, p.basic_salary
-    FROM employees e
-    LEFT JOIN departments d ON e.department_id = d.id
-    LEFT JOIN positions p ON e.position_id = p.id
-    WHERE e.is_active = 1
-    ORDER BY e.last_name, e.first_name
-";
-$employeesResult = $conn->query($employeesQuery);
+// Helper functions are defined in config.php
 
-// Build employee data array with correct salaries based on step increment
-$employeeData = [];
-if ($employeesResult && $employeesResult->num_rows > 0) {
-    while($emp = $employeesResult->fetch_assoc()) {
-        // Calculate current step based on date hired
+// Get all departments
+$departments = $conn->query("SELECT id, department_name, department_code FROM departments ORDER BY department_name");
+
+// Get selected department info and employees
+$selectedDept = null;
+$employees = [];
+
+if ($selectedDeptId > 0) {
+    $deptStmt = $conn->prepare("SELECT * FROM departments WHERE id = ?");
+    $deptStmt->bind_param("i", $selectedDeptId);
+    $deptStmt->execute();
+    $selectedDept = $deptStmt->get_result()->fetch_assoc();
+    $deptStmt->close();
+    
+    // Get active employees in this department
+    $empQuery = "
+        SELECT 
+            e.id, e.employee_id, e.first_name, e.last_name, e.middle_name, e.date_hired,
+            p.position_title, p.salary_grade, p.basic_salary
+        FROM employees e
+        LEFT JOIN positions p ON e.position_id = p.id
+        WHERE e.department_id = ? AND e.is_active = 1
+        ORDER BY e.last_name, e.first_name
+    ";
+    $empStmt = $conn->prepare($empQuery);
+    $empStmt->bind_param("i", $selectedDeptId);
+    $empStmt->execute();
+    $empResult = $empStmt->get_result();
+    
+    while ($emp = $empResult->fetch_assoc()) {
+        // Calculate step increment
         $currentStep = 1;
         $yearsOfService = 0;
         if ($emp['date_hired']) {
@@ -113,188 +149,360 @@ if ($employeesResult && $employeesResult->num_rows > 0) {
             $currentStep = min(8, floor($yearsOfService / 3) + 1);
         }
         
-        // Get correct salary from salary table based on salary grade and current step
-        $correctSalary = $emp['basic_salary'];
+        // Get correct salary from salary table
+        $currentSalary = $emp['basic_salary'] ?? 0;
         $salaryId = 0;
         
         if ($emp['salary_grade']) {
-            $salaryQuery = $conn->prepare("
-                SELECT salary_id, salary_rate 
-                FROM salary 
-                WHERE salary_grade = ? AND step_no = ?
-                LIMIT 1
-            ");
+            $salaryQuery = $conn->prepare("SELECT salary_id, salary_rate FROM salary WHERE salary_grade = ? AND step_no = ? LIMIT 1");
             $salaryQuery->bind_param("si", $emp['salary_grade'], $currentStep);
             $salaryQuery->execute();
             $salaryResult = $salaryQuery->get_result();
-            
             if ($salaryData = $salaryResult->fetch_assoc()) {
-                $correctSalary = $salaryData['salary_rate'];
+                $currentSalary = $salaryData['salary_rate'];
                 $salaryId = $salaryData['salary_id'];
             }
+            $salaryQuery->close();
         }
         
-        $employeeData[] = [
+        $employees[] = [
             'id' => $emp['id'],
             'employee_id' => $emp['employee_id'],
             'full_name' => $emp['last_name'] . ', ' . $emp['first_name'] . ($emp['middle_name'] ? ' ' . substr($emp['middle_name'], 0, 1) . '.' : ''),
-            'department_id' => $emp['department_id'],
-            'department' => $emp['department_name'],
-            'department_code' => $emp['department_code'],
-            'position' => $emp['position_title'],
-            'salary_grade' => $emp['salary_grade'],
+            'position' => $emp['position_title'] ?? 'N/A',
+            'salary_grade' => $emp['salary_grade'] ?? 'N/A',
             'current_step' => $currentStep,
-            'basic_salary' => $correctSalary,
+            'basic_salary' => $currentSalary,
             'salary_id' => $salaryId,
             'years_of_service' => $yearsOfService
         ];
     }
+    $empStmt->close();
 }
-
-// Pre-select employee if passed via URL
-$selectedEmployee = isset($_GET['employee']) ? (int)$_GET['employee'] : 0;
 
 require_once 'includes/header.php';
 ?>
 
 <style>
-.payroll-grid {
+.dept-select-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1.5rem;
+    margin-bottom: 2rem;
 }
 
-.employee-info-box {
-    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-    border: 2px solid #2196f3;
-    border-radius: 8px;
-    padding: 1rem;
-    margin-top: 1rem;
-}
-
-.employee-info-box h4 {
-    color: #1976d2;
-    margin: 0 0 0.75rem 0;
-    font-size: 1rem;
-}
-
-.info-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
-}
-
-.info-item {
-    display: flex;
-    flex-direction: column;
-}
-
-.info-label {
-    font-size: 0.75rem;
-    color: #1565c0;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.info-value {
-    font-size: 0.9rem;
-    color: #0d47a1;
-    font-weight: 600;
-}
-
-.salary-box {
-    background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
-    border: 2px solid #4caf50;
-    border-radius: 8px;
-    padding: 1rem;
+.dept-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 3px solid transparent;
     text-align: center;
-    margin-top: 1rem;
 }
 
-.salary-box h4 {
-    color: #2e7d32;
-    margin: 0 0 0.5rem 0;
-    font-size: 0.9rem;
+.dept-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    border-color: #2d6394;
 }
 
-.salary-amount {
-    font-size: 2rem;
+.dept-card-icon {
+    width: 64px; height: 64px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e3f0fa, #b5d5f0);
+    color: #2d6394;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+}
+
+.dept-card h3 {
+    font-size: 1.125rem;
     font-weight: 700;
-    color: #1b5e20;
+    color: #111827;
+    margin-bottom: 4px;
+}
+
+.dept-card p {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #4b5563;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    text-decoration: none;
+}
+
+.back-link:hover { color: #2d6394; }
+
+.batch-header {
+    background: linear-gradient(135deg, #132840, #0c1929);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 16px;
+    margin-bottom: 1.5rem;
+}
+
+.batch-header h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+.batch-header p {
+    color: #7eb3e0;
+}
+
+.period-selector {
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+
+.period-selector h3 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #111827;
+}
+
+.period-type-buttons {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.period-type-btn {
+    flex: 1;
+    padding: 12px 20px;
+    border: 3px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f9fafb;
+    color: #4b5563;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.period-type-btn:hover {
+    border-color: #2d6394;
+    background: #e0f2fe;
+    color: #1e40af;
+}
+
+.period-type-btn.active {
+    border-color: #2d6394;
+    background: #2d6394;
+    color: white;
+}
+
+.period-preview {
+    margin-top: 1rem;
+    padding: 12px 16px;
+    background: #e0f2fe;
+    border-radius: 8px;
+    color: #0369a1;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.period-preview strong {
+    color: #0c4a6e;
+}
+
+.period-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.employee-batch-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.employee-batch-table th {
+    background: #f3f4f6;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 700;
+    color: #374151;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.employee-batch-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: middle;
+}
+
+.employee-batch-table tr:hover {
+    background: #f9fafb;
+}
+
+.employee-batch-table .employee-name {
+    font-weight: 600;
+    color: #111827;
+}
+
+.employee-batch-table .employee-id {
+    font-family: monospace;
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.salary-input {
+    width: 120px;
+    padding: 8px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-weight: 600;
+    text-align: right;
+}
+
+.salary-input:focus {
+    outline: none;
+    border-color: #2d6394;
+}
+
+.step-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: #fef3c7;
+    color: #92400e;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.grade-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: #e0e7ff;
+    color: #3730a3;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.common-deductions {
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+
+.common-deductions h3 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #111827;
 }
 
 .deduction-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 1rem;
-    margin-bottom: 1.5rem;
 }
 
-.deduction-card {
-    background: #f5f5f5;
-    border: 1px solid #e0e0e0;
-    border-left: 3px solid #2196f3;
-    border-radius: 6px;
-    padding: 1rem;
-}
-
-.deduction-label {
-    font-size: 0.75rem;
-    color: #666;
-    margin-bottom: 0.25rem;
-    text-transform: uppercase;
-}
-
-.deduction-value {
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #333;
-}
-
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
-    text-align: center;
-}
-
-.summary-item {
-    padding: 1.5rem;
-}
-
-.summary-label {
+.deduction-item label {
+    display: block;
     font-size: 0.875rem;
-    color: #666;
-    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 4px;
 }
 
-.summary-value {
-    font-size: 2rem;
+.deduction-item input {
+    width: 100%;
+    padding: 8px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    text-align: right;
+}
+
+.batch-summary {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.batch-summary-info h3 {
+    font-size: 1.25rem;
     font-weight: 700;
 }
 
-.summary-value.gross {
-    color: #2196f3;
+.batch-summary-info p {
+    opacity: 0.9;
 }
 
-.summary-value.deduction {
-    color: #f44336;
+.btn-create-batch {
+    background: white;
+    color: #059669;
+    padding: 14px 32px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
 }
 
-.summary-value.net {
-    color: #4caf50;
+.btn-create-batch:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);
 }
 
-@media (max-width: 768px) {
-    .payroll-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .summary-grid {
-        grid-template-columns: 1fr;
-    }
+.no-employees {
+    text-align: center;
+    padding: 3rem;
+    color: #6b7280;
+}
+
+.no-employees i {
+    font-size: 3rem;
+    color: #d1d5db;
+    margin-bottom: 1rem;
+}
+
+.select-all-row {
+    background: #e0f2fe !important;
+}
+
+.select-all-row td {
+    padding: 8px 16px !important;
 }
 </style>
+
+<?php if ($selectedDeptId == 0): ?>
+<!-- DEPARTMENT SELECTION -->
 
 <div class="page-header">
     <div class="breadcrumb">
@@ -302,386 +510,391 @@ require_once 'includes/header.php';
         <span>/</span>
         <a href="payroll.php">Payroll</a>
         <span>/</span>
-        <span>Create</span>
+        <span>Create Batch Payroll</span>
     </div>
-    <h1 class="page-title">Create Payroll</h1>
-    <p class="page-subtitle">Generate new payroll record for an employee</p>
+    <h1 class="page-title">Create Batch Payroll</h1>
+    <p class="page-subtitle">Select a department to create payroll for all employees</p>
 </div>
 
-<?php if ($message): ?>
-    <div class="alert alert-<?php echo $messageType; ?>">
-        <i class="alert-icon fas fa-<?php echo $messageType === 'success' ? 'check-circle' : ($messageType === 'warning' ? 'exclamation-triangle' : 'exclamation-circle'); ?>"></i>
-        <div class="alert-content"><?php echo $message; ?></div>
-    </div>
-<?php endif; ?>
-
-<form method="POST" id="payrollForm">
-    <div class="payroll-grid">
-        <!-- Left Column: Employee & Period Selection -->
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">
-                    <i class="fas fa-user-tie"></i> Employee & Payroll Period
-                </h2>
+<div class="dept-select-grid">
+    <?php 
+    $departments->data_seek(0);
+    while($dept = $departments->fetch_assoc()): 
+        // Count active employees
+        $countQuery = $conn->query("SELECT COUNT(*) as count FROM employees WHERE department_id = {$dept['id']} AND is_active = 1");
+        $empCount = $countQuery->fetch_assoc()['count'];
+    ?>
+        <div class="dept-card" onclick="window.location.href='payroll_create.php?department_id=<?php echo $dept['id']; ?>'">
+            <div class="dept-card-icon">
+                <i class="fas fa-users"></i>
             </div>
-            <div class="card-body">
-                <!-- Employee Selection -->
-                <div class="form-group">
-                    <label class="form-label required">Select Employee</label>
-                    <select name="employee_id" id="employee_id" class="form-control" required onchange="loadEmployeeData()">
-                        <option value="">-- Choose Employee --</option>
-                        <?php foreach($employeeData as $emp): ?>
-                            <option value="<?php echo $emp['id']; ?>"
-                                    data-dept-id="<?php echo $emp['department_id']; ?>"
-                                    data-dept="<?php echo htmlspecialchars($emp['department']); ?>"
-                                    data-dept-code="<?php echo htmlspecialchars($emp['department_code']); ?>"
-                                    data-position="<?php echo htmlspecialchars($emp['position']); ?>"
-                                    data-grade="<?php echo $emp['salary_grade']; ?>"
-                                    data-step="<?php echo $emp['current_step']; ?>"
-                                    data-salary="<?php echo $emp['basic_salary']; ?>"
-                                    data-salary-id="<?php echo $emp['salary_id']; ?>"
-                                    data-years="<?php echo $emp['years_of_service']; ?>"
-                                    <?php echo $selectedEmployee == $emp['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($emp['full_name'] . ' - ' . $emp['employee_id']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <!-- Employee Info Display -->
-                <div id="employee_info_display" style="display: none;">
-                    <div class="employee-info-box">
-                        <h4><i class="fas fa-info-circle"></i> Employee Information</h4>
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <div class="info-label">Department</div>
-                                <div class="info-value" id="display_department">-</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-label">Position</div>
-                                <div class="info-value" id="display_position">-</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-label">Salary Grade</div>
-                                <div class="info-value" id="display_grade">-</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-label">Current Step</div>
-                                <div class="info-value" id="display_step">-</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-label">Years of Service</div>
-                                <div class="info-value" id="display_years">-</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="salary-box">
-                        <h4><i class="fas fa-money-bill-wave"></i> Monthly Basic Salary</h4>
-                        <div class="salary-amount" id="display_salary">₱ 0.00</div>
-                    </div>
-                </div>
-                
-                <!-- Period Selection -->
-                <div class="form-row" style="margin-top: 1.5rem;">
-                    <div class="form-group">
-                        <label class="form-label required">Month</label>
-                        <select name="payroll_month" id="payroll_month" class="form-control" required onchange="updatePeriodDisplay()">
-                            <?php 
-                            $months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-                            $currentMonth = date('F');
-                            foreach($months as $m): ?>
-                                <option value="<?php echo $m; ?>" <?php echo $m === $currentMonth ? 'selected' : ''; ?>><?php echo $m; ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label required">Year</label>
-                        <select name="payroll_year" id="payroll_year" class="form-control" required onchange="updatePeriodDisplay()">
-                            <?php 
-                            $currentYear = date('Y');
-                            for($y = $currentYear; $y >= 2020; $y--): ?>
-                                <option value="<?php echo $y; ?>"><?php echo $y; ?></option>
-                            <?php endfor; ?>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Pay Period</label>
-                    <select name="period_type" id="period_type" class="form-control" required onchange="updatePeriodDisplay()">
-                        <option value="1-15">1-15 (First Half of Month)</option>
-                        <option value="16-31">16-31 (Second Half of Month)</option>
-                    </select>
-                </div>
-                
-                <!-- Payroll Period Display -->
-                <div class="form-group">
-                    <label class="form-label">Payroll Period</label>
-                    <input type="text" name="payroll_period" id="payroll_period" class="form-control" readonly style="background: #e3f2fd; font-weight: 600;">
-                </div>
-                
-              
-                <div class="form-group">
-                    <label class="form-label required">Basic Salary (Monthly)</label>
-                    <input type="number" name="basic_salary" id="basic_salary" class="form-control" step="0.01" required readonly style="background: #c8e6c9; font-weight: 700; font-size: 1.2rem; color: #1b5e20;">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">PERA (Personnel Economic Relief Allowance)</label>
-                    <input type="number" name="pera" id="pera" class="form-control" step="0.01" value="2000.00" onchange="calculatePayroll()">
-                    <small class="form-hint">Standard PERA amount is ₱2,000.00</small>
-                </div>
+            <h3><?php echo htmlspecialchars($dept['department_name']); ?></h3>
+            <p><?php echo $empCount; ?> active employee<?php echo $empCount != 1 ? 's' : ''; ?></p>
+        </div>
+    <?php endwhile; ?>
+</div>
+
+<?php else: ?>
+<!-- BATCH PAYROLL FORM -->
+
+<a href="payroll.php?department_id=<?php echo $selectedDeptId; ?>" class="back-link">
+    <i class="fas fa-arrow-left"></i>
+    Back to Payroll List
+</a>
+
+<div class="page-header">
+    <div class="breadcrumb">
+        <a href="index.php"><i class="fas fa-home"></i></a>
+        <span>/</span>
+        <a href="payroll.php">Payroll</a>
+        <span>/</span>
+        <a href="payroll.php?department_id=<?php echo $selectedDeptId; ?>"><?php echo htmlspecialchars($selectedDept['department_code']); ?></a>
+        <span>/</span>
+        <span>Create Batch</span>
+    </div>
+</div>
+
+<div class="batch-header">
+    <h2><i class="fas fa-layer-group"></i> Batch Payroll - <?php echo htmlspecialchars($selectedDept['department_name']); ?></h2>
+    <p>Create payroll for <?php echo count($employees); ?> active employee<?php echo count($employees) != 1 ? 's' : ''; ?></p>
+</div>
+
+<?php if (count($employees) > 0): ?>
+
+<form method="POST" id="batchForm">
+    <input type="hidden" name="create_batch" value="1">
+    <input type="hidden" name="department_id" value="<?php echo $selectedDeptId; ?>">
+    
+    <!-- Period Selector -->
+    <div class="period-selector">
+        <h3><i class="fas fa-calendar-alt"></i> Payroll Period</h3>
+        
+        <!-- Period Type Selection -->
+        <div class="period-type-buttons">
+            <button type="button" class="period-type-btn active" data-type="half" onclick="setPeriodType('half')">
+                <i class="fas fa-calendar-week"></i> Half Month
+            </button>
+            <button type="button" class="period-type-btn" data-type="full" onclick="setPeriodType('full')">
+                <i class="fas fa-calendar"></i> Full Month
+            </button>
+            <button type="button" class="period-type-btn" data-type="custom" onclick="setPeriodType('custom')">
+                <i class="fas fa-calendar-day"></i> Custom Range
+            </button>
+        </div>
+        
+        <input type="hidden" name="period_mode" id="period_mode" value="half">
+        
+        <div class="period-grid" style="margin-top: 1rem;">
+            <div class="form-group">
+                <label class="form-label">Month</label>
+                <select name="payroll_month" id="payroll_month" class="form-control" required onchange="updatePeriodDisplay()">
+                    <?php
+                    $months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                    $currentMonth = date('F');
+                    foreach($months as $m):
+                    ?>
+                        <option value="<?php echo $m; ?>" <?php echo $m === $currentMonth ? 'selected' : ''; ?>><?php echo $m; ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Year</label>
+                <select name="payroll_year" id="payroll_year" class="form-control" required onchange="updatePeriodDisplay()">
+                    <?php
+                    $currentYear = date('Y');
+                    for($y = $currentYear + 1; $y >= $currentYear - 2; $y--):
+                    ?>
+                        <option value="<?php echo $y; ?>" <?php echo $y == $currentYear ? 'selected' : ''; ?>><?php echo $y; ?></option>
+                    <?php endfor; ?>
+                </select>
+            </div>
+            
+            <!-- Half Month Options -->
+            <div class="form-group" id="half_month_options">
+                <label class="form-label">Period</label>
+                <select name="period_half" id="period_half" class="form-control" onchange="updatePeriodDisplay()">
+                    <option value="1-15">1-15 (First Half)</option>
+                    <option value="16-31">16-31 (Second Half)</option>
+                </select>
+            </div>
+            
+            <!-- Custom Date Range -->
+            <div class="form-group" id="custom_start_group" style="display: none;">
+                <label class="form-label">Start Date</label>
+                <input type="number" name="custom_start" id="custom_start" class="form-control" min="1" max="31" value="1" onchange="updatePeriodDisplay()">
+            </div>
+            <div class="form-group" id="custom_end_group" style="display: none;">
+                <label class="form-label">End Date</label>
+                <input type="number" name="custom_end" id="custom_end" class="form-control" min="1" max="31" value="15" onchange="updatePeriodDisplay()">
             </div>
         </div>
         
-        <!-- Right Column: Deductions -->
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">
-                    <i class="fas fa-calculator"></i> Deductions
-                </h2>
-            </div>
-            <div class="card-body">
-                <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: #666;">
-                    <i class="fas fa-cog"></i> Automatic Calculations
-                </h4>
-                
-                <!-- Automatic Deductions Display -->
-                <div class="deduction-grid">
-                    <div class="deduction-card">
-                        <div class="deduction-label">GSIS (9%)</div>
-                        <div class="deduction-value" id="display_gsis">₱ 0.00</div>
-                    </div>
-                    <div class="deduction-card">
-                        <div class="deduction-label">PhilHealth</div>
-                        <div class="deduction-value" id="display_philhealth">₱ 0.00</div>
-                    </div>
-                    <div class="deduction-card">
-                        <div class="deduction-label">Pag-IBIG</div>
-                        <div class="deduction-value" id="display_pagibig">₱ 0.00</div>
-                    </div>
-                    <div class="deduction-card">
-                        <div class="deduction-label">Withholding Tax</div>
-                        <div class="deduction-value" id="display_wtax">₱ 0.00</div>
-                    </div>
-                </div>
-                
-                <hr style="margin: 1.5rem 0; border-color: #ddd;">
-                
-                <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: #666;">
-                    <i class="fas fa-edit"></i> Other Deductions (Manual Input)
-                </h4>
-                
-                <!-- Manual Deductions Input -->
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Provident Fund</label>
-                        <input type="number" name="provident" id="provident" class="form-control" step="0.01" value="0.00" onchange="calculatePayroll()">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">BCGEU</label>
-                        <input type="number" name="bcgeu" id="bcgeu" class="form-control" step="0.01" value="0.00" onchange="calculatePayroll()">
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">NOCGEM</label>
-                        <input type="number" name="nocgem" id="nocgem" class="form-control" step="0.01" value="0.00" onchange="calculatePayroll()">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">BACGEM</label>
-                        <input type="number" name="bacgem" id="bacgem" class="form-control" step="0.01" value="0.00" onchange="calculatePayroll()">
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Other Deductions</label>
-                    <input type="number" name="other_deductions" id="other_deductions" class="form-control" step="0.01" value="0.00" onchange="calculatePayroll()">
-                    <small class="form-hint">Loans, advances, etc.</small>
-                </div>
-            </div>
+        <!-- Period Preview -->
+        <div class="period-preview">
+            <i class="fas fa-info-circle"></i>
+            <span>Payroll Period: <strong id="period_preview">January 1-15, <?php echo date('Y'); ?></strong></span>
         </div>
+        
+        <input type="hidden" name="period_type" id="period_type" value="1-15">
     </div>
     
-    <!-- Payroll Summary -->
-    <div class="card" style="margin-top: 1.5rem;">
-        <div class="card-header" style="background: linear-gradient(135deg, #1976d2, #1565c0); color: white;">
-            <h2 class="card-title" style="color: white;">
-                <i class="fas fa-receipt"></i> Payroll Summary
+    <!-- Employee List -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-users"></i>
+                Employees
             </h2>
+            <span style="background: #e0f2fe; color: #0369a1; padding: 6px 14px; border-radius: 20px; font-weight: 600;">
+                <?php echo count($employees); ?> employee<?php echo count($employees) != 1 ? 's' : ''; ?>
+            </span>
         </div>
-        <div class="card-body">
-            <div class="summary-grid">
-                <div class="summary-item">
-                    <div class="summary-label">Gross Pay</div>
-                    <div class="summary-value gross" id="display_gross">₱ 0.00</div>
-                    <small class="text-muted">Basic Salary + PERA</small>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-label">Total Deductions</div>
-                    <div class="summary-value deduction" id="display_total_deductions">₱ 0.00</div>
-                    <small class="text-muted">All deductions combined</small>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-label">Net Pay</div>
-                    <div class="summary-value net" id="display_net">₱ 0.00</div>
-                    <small class="text-muted">Take home pay</small>
-                </div>
+        <div class="card-body" style="padding: 0;">
+            <table class="employee-batch-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">
+                            <input type="checkbox" id="selectAll" checked onchange="toggleSelectAll(this)">
+                        </th>
+                        <th>Employee</th>
+                        <th>Position</th>
+                        <th>Grade</th>
+                        <th>Step</th>
+                        <th>Basic Salary</th>
+                        <th>PERA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach($employees as $index => $emp): ?>
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="employee_ids[]" value="<?php echo $emp['id']; ?>" class="emp-checkbox" checked>
+                            <input type="hidden" name="salary_ids[]" value="<?php echo $emp['salary_id']; ?>">
+                        </td>
+                        <td>
+                            <div class="employee-name"><?php echo htmlspecialchars($emp['full_name']); ?></div>
+                            <div class="employee-id"><?php echo htmlspecialchars($emp['employee_id']); ?></div>
+                        </td>
+                        <td><?php echo htmlspecialchars($emp['position']); ?></td>
+                        <td><span class="grade-badge">SG-<?php echo $emp['salary_grade']; ?></span></td>
+                        <td><span class="step-badge">Step <?php echo $emp['current_step']; ?></span></td>
+                        <td>
+                            <input type="number" name="basic_salaries[]" class="salary-input" 
+                                   value="<?php echo number_format($emp['basic_salary'], 2, '.', ''); ?>" 
+                                   step="0.01" min="0">
+                        </td>
+                        <td>
+                            <input type="number" name="peras[]" class="salary-input" 
+                                   value="2000.00" step="0.01" min="0" style="width: 100px;">
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Common Deductions -->
+    <div class="common-deductions">
+        <h3><i class="fas fa-minus-circle"></i> Additional Deductions (Applied to All)</h3>
+        <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 1rem;">
+            Note: GSIS (9%), PhilHealth, Pag-IBIG, and Withholding Tax are calculated automatically.
+        </p>
+        <div class="deduction-grid">
+            <div class="deduction-item">
+                <label>Provident Fund</label>
+                <input type="number" name="provident" value="0.00" step="0.01" min="0">
             </div>
-            
-            <div style="text-align: center; margin-top: 2rem;">
-                <button type="submit" class="btn btn-success btn-lg" style="min-width: 300px;">
-                    <i class="fas fa-save"></i> Create Payroll Record
-                </button>
+            <div class="deduction-item">
+                <label>BCGEU</label>
+                <input type="number" name="bcgeu" value="0.00" step="0.01" min="0">
+            </div>
+            <div class="deduction-item">
+                <label>NOCGEM</label>
+                <input type="number" name="nocgem" value="0.00" step="0.01" min="0">
+            </div>
+            <div class="deduction-item">
+                <label>BACGEM</label>
+                <input type="number" name="bacgem" value="0.00" step="0.01" min="0">
+            </div>
+            <div class="deduction-item">
+                <label>Other</label>
+                <input type="number" name="other_deductions" value="0.00" step="0.01" min="0">
             </div>
         </div>
     </div>
     
-    <!-- Hidden Fields -->
-    <input type="hidden" name="department_id" id="department_id" value="0">
-    <input type="hidden" name="salary_id" id="salary_id" value="0">
-    <input type="hidden" name="gross_pay" id="gross_pay" value="0">
-    <input type="hidden" name="wtax" id="wtax" value="0">
-    <input type="hidden" name="philhealth" id="philhealth" value="0">
-    <input type="hidden" name="gsis" id="gsis" value="0">
-    <input type="hidden" name="pagibig" id="pagibig" value="0">
-    <input type="hidden" name="total_deductions" id="total_deductions" value="0">
-    <input type="hidden" name="net_pay" id="net_pay" value="0">
+    <!-- Submit -->
+    <div class="batch-summary">
+        <div class="batch-summary-info">
+            <h3><i class="fas fa-check-circle"></i> Ready to Create</h3>
+            <p><span id="selectedCount"><?php echo count($employees); ?></span> employee(s) selected</p>
+        </div>
+        <button type="submit" class="btn-create-batch">
+            <i class="fas fa-save"></i> Create Batch Payroll
+        </button>
+    </div>
 </form>
 
 <script>
-function formatCurrency(amount) {
-    return '₱ ' + parseFloat(amount).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+// Get days in month
+function getDaysInMonth(month, year) {
+    const monthIndex = ['January','February','March','April','May','June','July','August','September','October','November','December'].indexOf(month);
+    return new Date(year, monthIndex + 1, 0).getDate();
 }
 
-function loadEmployeeData() {
-    const select = document.getElementById('employee_id');
-    const option = select.options[select.selectedIndex];
+// Period Type Functions
+function setPeriodType(type) {
+    // Update buttons
+    document.querySelectorAll('.period-type-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.type === type) btn.classList.add('active');
+    });
     
-    if (!option.value) {
-        document.getElementById('employee_info_display').style.display = 'none';
-        document.getElementById('basic_salary').value = '0.00';
-        return;
+    document.getElementById('period_mode').value = type;
+    
+    // Show/hide options
+    const halfOptions = document.getElementById('half_month_options');
+    const customStart = document.getElementById('custom_start_group');
+    const customEnd = document.getElementById('custom_end_group');
+    
+    if (type === 'half') {
+        halfOptions.style.display = 'block';
+        customStart.style.display = 'none';
+        customEnd.style.display = 'none';
+    } else if (type === 'full') {
+        halfOptions.style.display = 'none';
+        customStart.style.display = 'none';
+        customEnd.style.display = 'none';
+    } else if (type === 'custom') {
+        halfOptions.style.display = 'none';
+        customStart.style.display = 'block';
+        customEnd.style.display = 'block';
     }
     
-    // Show employee info
-    document.getElementById('employee_info_display').style.display = 'block';
-    
-    // Populate employee data
-    const deptId = option.dataset.deptId;
-    const dept = option.dataset.dept + ' (' + option.dataset.deptCode + ')';
-    const position = option.dataset.position;
-    const grade = 'SG-' + option.dataset.grade;
-    const step = 'Step ' + option.dataset.step + ' of 8';
-    const salary = parseFloat(option.dataset.salary);
-    const salaryId = option.dataset.salaryId;
-    const years = option.dataset.years + ' years';
-    
-    document.getElementById('display_department').textContent = dept;
-    document.getElementById('display_position').textContent = position;
-    document.getElementById('display_grade').textContent = grade;
-    document.getElementById('display_step').textContent = step;
-    document.getElementById('display_years').textContent = years;
-    document.getElementById('display_salary').textContent = formatCurrency(salary);
-    
-    document.getElementById('department_id').value = deptId;
-    document.getElementById('salary_id').value = salaryId;
-    document.getElementById('basic_salary').value = salary.toFixed(2);
-    
     updatePeriodDisplay();
-    calculatePayroll();
+}
+
+function updateHalfMonthOptions() {
+    const month = document.getElementById('payroll_month').value;
+    const year = document.getElementById('payroll_year').value;
+    const daysInMonth = getDaysInMonth(month, year);
+    
+    const halfSelect = document.getElementById('period_half');
+    halfSelect.innerHTML = `
+        <option value="1-15">1-15 (First Half)</option>
+        <option value="16-${daysInMonth}">16-${daysInMonth} (Second Half)</option>
+    `;
+    
+    // Update custom end max
+    document.getElementById('custom_end').max = daysInMonth;
+    document.getElementById('custom_start').max = daysInMonth;
+    
+    // If current custom_end value is greater than days in month, adjust it
+    const customEnd = document.getElementById('custom_end');
+    if (parseInt(customEnd.value) > daysInMonth) {
+        customEnd.value = daysInMonth;
+    }
 }
 
 function updatePeriodDisplay() {
     const month = document.getElementById('payroll_month').value;
     const year = document.getElementById('payroll_year').value;
-    const period = document.getElementById('period_type').value;
+    const mode = document.getElementById('period_mode').value;
+    const daysInMonth = getDaysInMonth(month, year);
     
-    if (month && year && period) {
-        document.getElementById('payroll_period').value = month + ' ' + period + ', ' + year;
+    let periodText = '';
+    let periodType = '';
+    
+    if (mode === 'half') {
+        const half = document.getElementById('period_half').value;
+        periodType = half;
+        periodText = month + ' ' + half + ', ' + year;
+    } else if (mode === 'full') {
+        periodType = '1-' + daysInMonth;
+        periodText = month + ' 1-' + daysInMonth + ', ' + year + ' (Full Month)';
+    } else if (mode === 'custom') {
+        const start = document.getElementById('custom_start').value;
+        let end = parseInt(document.getElementById('custom_end').value);
+        
+        // Make sure end doesn't exceed days in month
+        if (end > daysInMonth) {
+            end = daysInMonth;
+            document.getElementById('custom_end').value = end;
+        }
+        
+        periodType = start + '-' + end;
+        periodText = month + ' ' + start + '-' + end + ', ' + year;
     }
+    
+    document.getElementById('period_preview').textContent = periodText;
+    document.getElementById('period_type').value = periodType;
 }
 
-function calculatePayroll() {
-    const basicSalary = parseFloat(document.getElementById('basic_salary').value) || 0;
-    const pera = parseFloat(document.getElementById('pera').value) || 0;
-    
-    // Calculate Gross Pay
-    const grossPay = basicSalary + pera;
-    
-    // Calculate Mandatory Deductions
-    const gsis = basicSalary * 0.09; // 9%
-    const philhealth = calculatePhilHealth(basicSalary);
-    const pagibig = calculatePagIbig(basicSalary);
-    const wtax = calculateWithholdingTax(basicSalary);
-    
-    // Get Other Deductions
-    const provident = parseFloat(document.getElementById('provident').value) || 0;
-    const bcgeu = parseFloat(document.getElementById('bcgeu').value) || 0;
-    const nocgem = parseFloat(document.getElementById('nocgem').value) || 0;
-    const bacgem = parseFloat(document.getElementById('bacgem').value) || 0;
-    const otherDeductions = parseFloat(document.getElementById('other_deductions').value) || 0;
-    
-    // Calculate Total Deductions
-    const totalDeductions = gsis + philhealth + pagibig + wtax + provident + bcgeu + nocgem + bacgem + otherDeductions;
-    
-    // Calculate Net Pay
-    const netPay = grossPay - totalDeductions;
-    
-    // Update Display
-    document.getElementById('display_gsis').textContent = formatCurrency(gsis);
-    document.getElementById('display_philhealth').textContent = formatCurrency(philhealth);
-    document.getElementById('display_pagibig').textContent = formatCurrency(pagibig);
-    document.getElementById('display_wtax').textContent = formatCurrency(wtax);
-    document.getElementById('display_gross').textContent = formatCurrency(grossPay);
-    document.getElementById('display_total_deductions').textContent = formatCurrency(totalDeductions);
-    document.getElementById('display_net').textContent = formatCurrency(netPay);
-    
-    // Update Hidden Fields
-    document.getElementById('gross_pay').value = grossPay.toFixed(2);
-    document.getElementById('gsis').value = gsis.toFixed(2);
-    document.getElementById('philhealth').value = philhealth.toFixed(2);
-    document.getElementById('pagibig').value = pagibig.toFixed(2);
-    document.getElementById('wtax').value = wtax.toFixed(2);
-    document.getElementById('total_deductions').value = totalDeductions.toFixed(2);
-    document.getElementById('net_pay').value = netPay.toFixed(2);
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.emp-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateSelectedCount();
 }
 
-function calculatePhilHealth(basicSalary) {
-    // PhilHealth 2024 contribution rates
-    if (basicSalary <= 10000) return 450;
-    if (basicSalary >= 80000) return 3600;
-    return basicSalary * 0.045; // 4.5%
+function updateSelectedCount() {
+    const checked = document.querySelectorAll('.emp-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = checked;
 }
 
-function calculatePagIbig(basicSalary) {
-    // Pag-IBIG contribution rates
-    if (basicSalary <= 1500) return basicSalary * 0.01; // 1%
-    if (basicSalary <= 5000) return basicSalary * 0.02; // 2%
-    return 100; // Maximum ₱100
-}
+document.querySelectorAll('.emp-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateSelectedCount);
+});
 
-function calculateWithholdingTax(monthlyBasic) {
-    // Philippine withholding tax 2024 (simplified)
-    if (monthlyBasic <= 20833) return 0;
-    if (monthlyBasic <= 33332) return (monthlyBasic - 20833) * 0.15;
-    if (monthlyBasic <= 66666) return 1875 + (monthlyBasic - 33333) * 0.20;
-    if (monthlyBasic <= 166666) return 8541.80 + (monthlyBasic - 66667) * 0.25;
-    if (monthlyBasic <= 666666) return 33541.80 + (monthlyBasic - 166667) * 0.30;
-    return 183541.80 + (monthlyBasic - 666667) * 0.35;
-}
+document.getElementById('batchForm').addEventListener('submit', function(e) {
+    const checked = document.querySelectorAll('.emp-checkbox:checked').length;
+    if (checked === 0) {
+        e.preventDefault();
+        alert('Please select at least one employee.');
+        return false;
+    }
+    
+    if (!confirm('Create payroll for ' + checked + ' employee(s)?')) {
+        e.preventDefault();
+        return false;
+    }
+});
+
+// Add event listeners for month/year change
+document.getElementById('payroll_month').addEventListener('change', function() {
+    updateHalfMonthOptions();
+    updatePeriodDisplay();
+});
+
+document.getElementById('payroll_year').addEventListener('change', function() {
+    updateHalfMonthOptions();
+    updatePeriodDisplay();
+});
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
+    updateHalfMonthOptions();
     updatePeriodDisplay();
-    
-    // If employee is pre-selected, load their data
-    if (document.getElementById('employee_id').value) {
-        loadEmployeeData();
-    }
 });
 </script>
+
+<?php else: ?>
+
+<div class="card">
+    <div class="card-body">
+        <div class="no-employees">
+            <i class="fas fa-users-slash"></i>
+            <h3>No Active Employees</h3>
+            <p>There are no active employees in this department.</p>
+            <a href="employees.php?department_id=<?php echo $selectedDeptId; ?>" class="btn btn-primary" style="margin-top: 1rem;">
+                <i class="fas fa-plus"></i> Add Employees
+            </a>
+        </div>
+    </div>
+</div>
+
+<?php endif; ?>
+
+<?php endif; ?>
 
 <?php require_once 'includes/footer.php'; ?>

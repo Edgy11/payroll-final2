@@ -12,7 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <!-- Main Stylesheet -->
-    <link rel="stylesheet" href="css/style.css">
+   <link rel="stylesheet" href="css/style.css?v=2">
+<script src="js/main.js?v=2"></script>
 </head>
 <body>
     <div class="app-container">
@@ -20,7 +21,7 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
-                    <i class="fas fa-building-columns"></i>
+                   <img src="assets/bcd.png" alt="Payroll System Logo" />
                 </div>
                 <h1 class="sidebar-title">Payroll System</h1>
                 <p class="sidebar-subtitle">City Mayor's Office</p>
@@ -80,11 +81,34 @@
                 </div>
             </nav>
             
-            <div style="padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); text-align: center;">
-                <small style="color: var(--primary-400);">
-                    v1.0.0 &copy; <?php echo date('Y'); ?>
-                </small>
-            </div>
+            <div style="padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+    <!-- User Info -->
+    <?php if (function_exists('getUserInfo')): 
+        $user = getUserInfo();
+        if ($user):
+    ?>
+    <div style="padding: 0.75rem; background: rgba(255,255,255,0.1); border-radius: 0.5rem; margin-bottom: 0.75rem;">
+        <div style="color: white; font-weight: 600; font-size: 0.875rem;">
+            <i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($user['full_name']); ?>
+        </div>
+        <div style="color: var(--primary-300); font-size: 0.75rem; text-transform: capitalize;">
+            <?php echo htmlspecialchars($user['role']); ?>
+        </div>
+    </div>
+    <?php endif; endif; ?>
+    
+    <!-- Logout Button -->
+    <a href="logout.php" class="nav-item" style="background: rgba(239, 68, 68, 0.2); color: #fee2e2; justify-content: center;">
+        <i class="fas fa-sign-out-alt"></i>
+        <span>Logout</span>
+    </a>
+    
+    <div style="text-align: center; margin-top: 0.75rem;">
+        <small style="color: var(--primary-400);">
+            v1.0.0 &copy; <?php echo date('Y'); ?>
+        </small>
+    </div>
+</div>
         </aside>
         
         <!-- Mobile Toggle -->

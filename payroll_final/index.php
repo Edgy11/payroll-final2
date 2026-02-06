@@ -7,6 +7,7 @@
 
 require_once 'includes/config.php';
 
+
 $pageTitle = 'Dashboard';
 
 // Get statistics

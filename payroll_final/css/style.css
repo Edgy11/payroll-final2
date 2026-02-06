@@ -152,9 +152,9 @@ img {
 }
 
 .sidebar-logo {
-    width: 70px;
-    height: 70px;
-    background: linear-gradient(135deg, var(--accent-400), var(--accent-500));
+    width: 150px;
+    height: 150px;
+    background: transparent;
     border-radius: var(--radius-xl);
     display: flex;
     align-items: center;
@@ -162,8 +162,7 @@ img {
     margin: 0 auto var(--space-md);
     font-size: 1.75rem;
     font-weight: 800;
-    color: var(--primary-900);
-    box-shadow: 0 4px 20px rgba(201, 162, 39, 0.3);
+    color: var(--white);
 }
 
 .sidebar-title {
@@ -387,7 +386,7 @@ img {
     font-size: 1.5rem;
     margin-bottom: var(--space-md);
     background: var(--primary-100);
-   
+    color: var(--primary-600);
 }
 
 .stat-card.success .stat-icon {

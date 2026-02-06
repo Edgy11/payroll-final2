@@ -6,6 +6,7 @@
  */
 
 require_once 'includes/config.php';
+require_once 'includes/auth.php';
 
 $pageTitle = 'Step Increment History';
 
@@ -254,11 +255,7 @@ require_once 'includes/header.php';
                 (Automatic calculation: Step increases every 3 years)
             </small>
         </h2>
-        <div class="btn-group">
-            <a href="employees.php" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Back to Employees
-            </a>
-        </div>
+       
     </div>
     
     <div class="card-body" style="padding: 0;">

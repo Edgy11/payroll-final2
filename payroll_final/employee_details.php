@@ -5,6 +5,7 @@
  */
 
 require_once 'includes/config.php';
+require_once 'includes/auth.php';
 
 $pageTitle = 'Employee Details';
 
@@ -99,9 +100,8 @@ require_once 'includes/header.php';
 <div class="card" style="margin-bottom: 1.5rem;">
     <div class="card-body" style="padding: 1rem;">
         <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-            <a href="employees.php" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Back to Employees
-            </a>
+            
+                
             <a href="step_inc_history.php?employee_id=<?php echo $employee['id']; ?>" class="btn btn-info">
                 <i class="fas fa-history"></i> Step Increment History
             </a>
@@ -339,9 +339,9 @@ require_once 'includes/header.php';
 
 <style>
 .employee-details-grid {
-    display: grid;
+    display: flex;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 1.5rem;
+    gap: .5rem;
 }
 
 .details-card {
@@ -371,9 +371,9 @@ require_once 'includes/header.php';
 }
 
 .details-row {
-    display: grid;
+    display: flex;
     grid-template-columns: 140px 1fr;
-    gap: 1rem;
+    gap: 5.0rem;
     padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--gray-200);
 }

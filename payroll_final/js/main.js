@@ -280,14 +280,13 @@ function toggleSidebar() {
     }
 }
 
-// Initialize navigation
 function initNavigation() {
     const currentPage = window.location.pathname.split('/').pop() || 'index.php';
     const navItems = document.querySelectorAll('.nav-item');
     
     navItems.forEach(item => {
         const href = item.getAttribute('href') || item.getAttribute('data-page');
-        if (href && (href === currentPage || href.includes(currentPage.replace('.php', '')))) {
+        if (href && href === currentPage) {
             item.classList.add('active');
         }
     });
