@@ -17,12 +17,27 @@ $selectedDeptId = isset($_GET['department_id']) ? (int)$_GET['department_id'] : 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_status_change']) && !empty($_POST['bulk_status_change'])) {
     $newStatus = sanitize($_POST['bulk_status_change']);
     $deptId = (int)$_POST['dept_id'];
+    $filterMonth = isset($_POST['filter_month']) ? sanitize($_POST['filter_month']) : '';
+    $filterYear = isset($_POST['filter_year']) ? (int)$_POST['filter_year'] : 0;
+    $filterPeriod = isset($_POST['filter_period']) ? sanitize($_POST['filter_period']) : '';
     
     $allowedStatuses = ['Draft', 'Approved', 'Paid'];
     if (in_array($newStatus, $allowedStatuses) && $deptId > 0) {
-        // Only update records that are NOT already paid
-        $updateStmt = $conn->prepare("UPDATE payroll SET status = ?, updated_at = NOW() WHERE department_id = ? AND status != 'Paid'");
-        $updateStmt->bind_param("si", $newStatus, $deptId);
+        // Build WHERE clause
+        $whereClause = "department_id = ? AND status != 'Paid'";
+        $params = [$deptId];
+        $types = "i";
+        
+        if ($filterMonth && $filterYear && $filterPeriod) {
+            $whereClause .= " AND payroll_month = ? AND payroll_year = ? AND period_type = ?";
+            $params[] = $filterMonth;
+            $params[] = $filterYear;
+            $params[] = $filterPeriod;
+            $types .= "sis";
+        }
+        
+        $updateStmt = $conn->prepare("UPDATE payroll SET status = ?, updated_at = NOW() WHERE $whereClause");
+        $updateStmt->bind_param("s" . $types, $newStatus, ...$params);
         
         if ($updateStmt->execute()) {
             $affectedRows = $updateStmt->affected_rows;
@@ -37,7 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_status_change'])
         $updateStmt->close();
     }
     
-    header('Location: payroll.php?department_id=' . $deptId);
+    $redirectUrl = 'payroll.php?department_id=' . $deptId;
+    if ($filterMonth && $filterYear && $filterPeriod) {
+        $redirectUrl .= '&month=' . urlencode($filterMonth) . '&year=' . $filterYear . '&period=' . urlencode($filterPeriod);
+    }
+    header('Location: ' . $redirectUrl);
     exit;
 }
 
@@ -105,14 +124,48 @@ $totalRecords = 0;
 $paidCount = 0;
 $nonPaidCount = 0;
 $allPaid = false;
+$currentMonth = null;
+$currentYear = null;
+$currentPeriod = null;
+$availablePeriods = [];
 
 if ($selectedDeptId > 0) {
+    // Get available periods for this department
+    $periodsQuery = $conn->query("
+        SELECT DISTINCT payroll_month, payroll_year, period_type 
+        FROM payroll 
+        WHERE department_id = $selectedDeptId 
+        ORDER BY payroll_year DESC, 
+                 FIELD(payroll_month, 'December','November','October','September','August','July','June','May','April','March','February','January'),
+                 period_type DESC
+    ");
+    while ($p = $periodsQuery->fetch_assoc()) {
+        $availablePeriods[] = $p;
+    }
+    
+    // Set current filter from URL or use latest
+    if (isset($_GET['month']) && isset($_GET['year']) && isset($_GET['period'])) {
+        $currentMonth = sanitize($_GET['month']);
+        $currentYear = (int)$_GET['year'];
+        $currentPeriod = sanitize($_GET['period']);
+    } elseif (!empty($availablePeriods)) {
+        $currentMonth = $availablePeriods[0]['payroll_month'];
+        $currentYear = $availablePeriods[0]['payroll_year'];
+        $currentPeriod = $availablePeriods[0]['period_type'];
+    }
+    
+    // Build WHERE clause
+    $whereClause = "p.department_id = $selectedDeptId";
+    if ($currentMonth && $currentYear && $currentPeriod) {
+        $whereClause .= " AND p.payroll_month = '$currentMonth' AND p.payroll_year = $currentYear AND p.period_type = '$currentPeriod'";
+    }
+    
     $countQuery = $conn->query("
         SELECT 
             COUNT(*) as total,
             SUM(CASE WHEN status = 'Paid' THEN 1 ELSE 0 END) as paid,
             SUM(CASE WHEN status != 'Paid' THEN 1 ELSE 0 END) as non_paid
-        FROM payroll WHERE department_id = $selectedDeptId
+        FROM payroll p WHERE $whereClause
     ");
     $counts = $countQuery->fetch_assoc();
     $totalRecords = $counts['total'];
@@ -137,14 +190,11 @@ if ($selectedDeptId > 0) {
         LEFT JOIN employees e ON p.employee_id = e.id
         LEFT JOIN departments d ON p.department_id = d.id
         LEFT JOIN salary s ON p.salary_id = s.salary_id
-        WHERE p.department_id = ?
+        WHERE $whereClause
         ORDER BY e.last_name ASC, e.first_name ASC
     ";
     
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("i", $selectedDeptId);
-    $stmt->execute();
-    $payrollRecords = $stmt->get_result();
+    $payrollRecords = $conn->query($query);
 }
 
 require_once 'includes/header.php';
@@ -523,6 +573,43 @@ require_once 'includes/header.php';
 .status-help strong {
     color: #dc3545;
 }
+
+.period-filter-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.period-filter-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.period-filter-header i {
+    color: #2d6394;
+}
+
+.period-filter-form select {
+    padding: 10px 15px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-weight: 600;
+    color: #111827;
+    cursor: pointer;
+}
+
+.period-filter-form select:focus {
+    outline: none;
+    border-color: #2d6394;
+}
 </style>
 
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
@@ -647,13 +734,51 @@ require_once 'includes/header.php';
                 <p>Payroll Records</p>
             </div>
         </div>
-        <?php if (!$allPaid): ?>
-        <a href="payroll_create.php?department_id=<?php echo $selectedDeptId; ?>" class="btn btn-primary" style="background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3);">
-            <i class="fas fa-plus"></i> Add Payroll
-        </a>
-        <?php endif; ?>
+        <div style="display: flex; gap: 10px;">
+            <?php if ($totalRecords > 0): ?>
+            <a href="payroll_print.php?department_id=<?php echo $selectedDeptId; ?>&month=<?php echo urlencode($currentMonth ?? date('F')); ?>&year=<?php echo $currentYear ?? date('Y'); ?>&period=<?php echo urlencode($currentPeriod ?? '1-15'); ?>" 
+               class="btn btn-secondary" style="background: white; border: 2px solid rgba(255,255,255,0.3);" target="_blank">
+                <i class="fas fa-print"></i> Print Payroll
+            </a>
+            <?php endif; ?>
+            <?php if (!$allPaid): ?>
+            <a href="payroll_create.php?department_id=<?php echo $selectedDeptId; ?>" class="btn btn-primary" style="background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3);">
+                <i class="fas fa-plus"></i> Add Payroll
+            </a>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
+
+<!-- Period Filter -->
+<?php if (!empty($availablePeriods)): ?>
+<div class="period-filter-card">
+    <div class="period-filter-header">
+        <i class="fas fa-filter"></i>
+        <span>Filter by Period:</span>
+    </div>
+    <form method="GET" class="period-filter-form">
+        <input type="hidden" name="department_id" value="<?php echo $selectedDeptId; ?>">
+        <select name="period_select" class="form-control" onchange="applyPeriodFilter(this.value)" style="min-width: 280px;">
+            <?php foreach($availablePeriods as $p): 
+                $periodValue = $p['payroll_month'] . '|' . $p['payroll_year'] . '|' . $p['period_type'];
+                $isSelected = ($p['payroll_month'] == $currentMonth && $p['payroll_year'] == $currentYear && $p['period_type'] == $currentPeriod);
+            ?>
+                <option value="<?php echo $periodValue; ?>" <?php echo $isSelected ? 'selected' : ''; ?>>
+                    <?php echo $p['payroll_month'] . ' ' . $p['period_type'] . ', ' . $p['payroll_year']; ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </form>
+</div>
+<script>
+function applyPeriodFilter(value) {
+    const parts = value.split('|');
+    const url = 'payroll.php?department_id=<?php echo $selectedDeptId; ?>&month=' + encodeURIComponent(parts[0]) + '&year=' + parts[1] + '&period=' + encodeURIComponent(parts[2]);
+    window.location.href = url;
+}
+</script>
+<?php endif; ?>
 
 <!-- Bulk Status Control -->
 <?php if ($totalRecords > 0): ?>
@@ -681,6 +806,9 @@ require_once 'includes/header.php';
         
         <form method="POST" id="statusForm">
             <input type="hidden" name="dept_id" value="<?php echo $selectedDeptId; ?>">
+            <input type="hidden" name="filter_month" value="<?php echo htmlspecialchars($currentMonth ?? ''); ?>">
+            <input type="hidden" name="filter_year" value="<?php echo $currentYear ?? ''; ?>">
+            <input type="hidden" name="filter_period" value="<?php echo htmlspecialchars($currentPeriod ?? ''); ?>">
             <input type="hidden" name="bulk_status_change" id="statusInput" value="">
             
             <div class="bulk-status-buttons">

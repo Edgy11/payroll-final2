@@ -202,31 +202,6 @@ require_once 'includes/header.php';
 </div>
 
 <!-- Quick Actions -->
-<div class="card" style="margin-top: var(--space-xl);">
-    <div class="card-header">
-        <h2 class="card-title">
-            <i class="fas fa-bolt"></i>
-            Quick Actions
-        </h2>
-    </div>
-    <div class="card-body">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-lg);">
-            <a href="employees.php?action=add" class="btn btn-primary btn-lg" style="justify-content: flex-start;">
-                <i class="fas fa-user-plus"></i>
-                Add Employee
-            </a>
-            <a href="payroll_create.php" class="btn btn-success btn-lg" style="justify-content: flex-start;">
-                <i class="fas fa-file-invoice-dollar"></i>
-                Create Payroll
-            </a>
-            <a href="payroll_generate.php" class="btn btn-warning btn-lg" style="justify-content: flex-start;">
-                <i class="fas fa-calculator"></i>
-                Generate Payroll
-            </a>
-            
-             
-        </div>
-    </div>
-</div>
+
 
 <?php require_once 'includes/footer.php'; ?>
