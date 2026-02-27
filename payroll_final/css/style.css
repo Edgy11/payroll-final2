@@ -729,7 +729,7 @@ textarea.form-control {
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
-    z-index: 200;
+    z-index: 1050;
     display: none;
     align-items: center;
     justify-content: center;
@@ -753,6 +753,7 @@ textarea.form-control {
     box-shadow: var(--shadow-xl);
     transform: scale(0.95);
     transition: transform var(--transition-base);
+    z-index: 1051;
 }
 
 .modal-overlay.active .modal {
@@ -1032,48 +1033,294 @@ textarea.form-control {
 }
 
 /* ============================================
+   MOBILE TOPBAR
+   ============================================ */
+
+.mobile-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: linear-gradient(90deg, var(--primary-900), var(--primary-800));
+    z-index: 300;
+    box-shadow: var(--shadow-md);
+}
+
+.topbar-toggle {
+    width: 40px;
+    height: 40px;
+    background: rgba(255,255,255,0.12);
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    font-size: 1.125rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    flex-shrink: 0;
+}
+.topbar-toggle:hover { background: rgba(255,255,255,0.22); }
+
+.topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    letter-spacing: -0.01em;
+}
+
+/* ============================================
+   SIDEBAR ENHANCEMENTS
+   ============================================ */
+
+.sidebar-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    background: rgba(255,255,255,0.12);
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+.sidebar-close:hover { background: rgba(255,255,255,0.25); }
+
+.sidebar-footer {
+    padding: 1rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: auto;
+}
+
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.625rem 0.75rem;
+    background: rgba(255,255,255,0.1);
+    border-radius: var(--radius-md);
+    margin-bottom: 0.75rem;
+}
+
+.sidebar-user-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-full);
+    background: linear-gradient(135deg, var(--primary-400), var(--accent-500));
+    color: white;
+    font-weight: 700;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sidebar-user-name {
+    color: white;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.sidebar-user-role {
+    color: var(--primary-300);
+    font-size: 0.6875rem;
+    text-transform: capitalize;
+}
+
+.sidebar-logout {
+    background: rgba(239,68,68,0.18) !important;
+    color: #fecaca !important;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+}
+.sidebar-logout:hover {
+    background: rgba(239,68,68,0.35) !important;
+    color: white !important;
+}
+
+.sidebar-version {
+    text-align: center;
+    font-size: 0.6875rem;
+    color: var(--primary-400);
+    margin-top: 0.5rem;
+}
+
+/* Sidebar overlay */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 199;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+.sidebar-overlay.active { display: block; }
+
+/* ============================================
    RESPONSIVE DESIGN
    ============================================ */
 
-@media (max-width: 1024px) {
+/* ── Large screens (desktop) ── */
+@media (min-width: 992px) {
+    .mobile-topbar { display: none !important; }
+    .sidebar-close  { display: none !important; }
     .sidebar {
-        transform: translateX(-100%);
+        transform: translateX(0) !important;
+        position: fixed;
     }
-    
-    .sidebar.open {
-        transform: translateX(0);
-    }
-    
     .main-content {
-        margin-left: 0;
+        margin-left: 280px;
+        padding-top: var(--space-xl);
     }
 }
 
-@media (max-width: 768px) {
-    .page-title {
-        font-size: 1.5rem;
+/* ── Tablet & Mobile (≤991px) ── */
+@media (max-width: 991.98px) {
+    .sidebar {
+        transform: translateX(-100%);
+        z-index: 200;
+        transition: transform var(--transition-slow);
     }
-    
+    .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 4px 0 30px rgba(0,0,0,0.3);
+    }
+    .main-content {
+        margin-left: 0 !important;
+        padding-top: calc(56px + 1.25rem); /* topbar height + gap */
+        padding-left: var(--space-lg);
+        padding-right: var(--space-lg);
+        padding-bottom: var(--space-xl);
+    }
+}
+
+/* ── Tablet (768–991px) ── */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .deduction-grid { grid-template-columns: repeat(3, 1fr); }
+    .filter-bar { flex-wrap: wrap; }
+}
+
+/* ── Mobile (≤767px) ── */
+@media (max-width: 767.98px) {
+    html { font-size: 14px; }
+
+    .main-content {
+        padding-left: var(--space-md);
+        padding-right: var(--space-md);
+    }
+
+    /* Page header */
+    .page-title { font-size: 1.375rem; }
+    .page-header { margin-bottom: var(--space-lg); }
+
+    /* Stats grid — 2 col */
     .stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-md);
     }
-    
-    .form-row {
-        grid-template-columns: 1fr;
-    }
-    
+    .stat-value { font-size: 1.375rem; }
+    .stat-card  { padding: var(--space-lg); }
+
+    /* Cards */
     .card-header {
         flex-direction: column;
         align-items: flex-start;
+        gap: var(--space-sm);
+        padding: var(--space-md) var(--space-lg);
     }
-    
-    .btn-group {
-        width: 100%;
+    .card-body { padding: var(--space-lg); }
+
+    /* Inline style grids — force stack */
+    div[style*="grid-template-columns: 2fr 1fr"],
+    div[style*="grid-template-columns: 1fr 1fr"],
+    div[style*="grid-template-columns: repeat(4, 1fr)"],
+    div[style*="grid-template-columns: repeat(3, 1fr)"] {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: var(--space-lg) !important;
     }
-    
-    .btn-group .btn {
-        flex: 1;
+
+    /* Forms */
+    .form-row { grid-template-columns: 1fr; gap: var(--space-md); }
+
+    /* Buttons */
+    .btn-group { width: 100%; flex-wrap: wrap; }
+    .btn-group .btn { flex: 1 1 auto; min-width: 100px; }
+
+    /* Tables */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: var(--radius-lg);
     }
+    .data-table th,
+    .data-table td {
+        padding: var(--space-sm) var(--space-md);
+        font-size: 0.8125rem;
+        white-space: nowrap;
+    }
+
+    /* Filters */
+    .filter-bar { flex-direction: column; gap: var(--space-sm); }
+    .filter-bar > * { width: 100%; }
+
+    /* Modals — slide up from bottom */
+    .modal-overlay { padding: 0; align-items: flex-end; }
+    .modal {
+        max-width: 100%;
+        max-height: 88vh;
+        border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    }
+    .modal-body { max-height: 58vh; }
+
+    /* Deductions */
+    .deduction-grid { grid-template-columns: repeat(2, 1fr); }
+
+    /* Payroll meta */
+    .payroll-meta { flex-wrap: wrap; gap: var(--space-md); }
+
+    /* Toast */
+    .toast-container {
+        left: var(--space-md);
+        right: var(--space-md);
+        top: auto;
+        bottom: var(--space-xl);
+    }
+    .toast { min-width: unset; width: 100%; }
+
+    /* Breadcrumb */
+    .breadcrumb { font-size: 0.75rem; flex-wrap: wrap; }
+
+    /* Sidebar logo */
+    .sidebar-logo { width: 80px; height: 80px; }
+}
+
+/* ── Small phones (≤479px) ── */
+@media (max-width: 479px) {
+    .stats-grid { grid-template-columns: 1fr; }
+    .deduction-grid { grid-template-columns: 1fr; }
+    .page-title { font-size: 1.2rem; }
+    .card-body { padding: var(--space-md); }
+    .btn-group .btn { width: 100%; }
+    .topbar-brand span { font-size: 0.8125rem; }
 }
 
 /* ============================================

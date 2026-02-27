@@ -21,6 +21,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Validate status value
     $allowedStatuses = ['Draft', 'Approved', 'Paid'];
+    if (isAdmin2()) {
+        // admin2 can only mark as Paid
+        $allowedStatuses = ['Paid'];
+    }
     if (!in_array($status, $allowedStatuses)) {
         echo json_encode(['success' => false, 'message' => 'Invalid status value']);
         exit;

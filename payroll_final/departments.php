@@ -5,6 +5,7 @@
 
 require_once 'includes/config.php';
 require_once 'includes/auth.php';
+requireSuperAdmin();
 
 $pageTitle = 'Departments';
 $message = '';
@@ -171,7 +172,7 @@ if ($departments) {
                 <i class="fas fa-search"></i>
                 <input type="text" class="form-control" placeholder="Search departments..." data-search-table="departmentsTable">
             </div>
-            <button class="btn btn-primary" onclick="Modal.open('addDepartmentModal')">
+            <button class="btn btn-primary" onclick="openModal('addDepartmentModal')">
                 <i class="fas fa-plus"></i> Add Department
             </button>
         </div>
@@ -244,14 +245,12 @@ if ($departments) {
 </div>
 
 <!-- Add Department Modal -->
-<div class="modal-overlay" id="addDepartmentModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3 class="modal-title">Add New Department</h3>
-            <button class="modal-close" onclick="Modal.close('addDepartmentModal')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
+<div id="addDepartmentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; padding:1rem;">
+<div style="background:#fff; border-radius:16px; width:100%; max-width:560px; box-shadow:0 25px 50px rgba(0,0,0,0.25); overflow:hidden;">
+    <div style="padding:1.25rem 1.5rem; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; justify-content:space-between; background:#1a3a5c;">
+        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;"><i class="fas fa-plus-circle" style="margin-right:8px;"></i>Add New Department</h3>
+        <button onclick="closeModal('addDepartmentModal')" style="border:none; background:rgba(255,255,255,0.15); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:0.9rem; color:#fff;">&#10005;</button>
+    </div>
         <form method="POST" id="addDepartmentForm">
             <input type="hidden" name="action" value="add">
             <div class="modal-body">
@@ -269,25 +268,23 @@ if ($departments) {
                     <textarea name="description" class="form-control" rows="3" placeholder="Brief description of the department"></textarea>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="Modal.close('addDepartmentModal')">Cancel</button>
+            <div style="padding:1rem 1.5rem; background:#f9fafb; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:0.75rem;">
+                <button type="button" onclick="closeModal('addDepartmentModal')" style="padding:0.5rem 1.25rem; border:2px solid #d1d5db; background:#fff; border-radius:8px; font-weight:600; cursor:pointer; color:#374151;">Cancel</button>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save"></i> Save Department
                 </button>
             </div>
         </form>
-    </div>
+</div>
 </div>
 
 <!-- Edit Department Modal -->
-<div class="modal-overlay" id="editDepartmentModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3 class="modal-title">Edit Department</h3>
-            <button class="modal-close" onclick="Modal.close('editDepartmentModal')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
+<div id="editDepartmentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; padding:1rem;">
+<div style="background:#fff; border-radius:16px; width:100%; max-width:560px; box-shadow:0 25px 50px rgba(0,0,0,0.25); overflow:hidden;">
+    <div style="padding:1.25rem 1.5rem; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; justify-content:space-between; background:#1a3a5c;">
+        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;"><i class="fas fa-edit" style="margin-right:8px;"></i>Edit Department</h3>
+        <button onclick="closeModal('editDepartmentModal')" style="border:none; background:rgba(255,255,255,0.15); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:0.9rem; color:#fff;">&#10005;</button>
+    </div>
         <form method="POST" id="editDepartmentForm">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="id" id="edit_id">
@@ -305,14 +302,14 @@ if ($departments) {
                     <textarea name="description" id="edit_description" class="form-control" rows="3"></textarea>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="Modal.close('editDepartmentModal')">Cancel</button>
+            <div style="padding:1rem 1.5rem; background:#f9fafb; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:0.75rem;">
+                <button type="button" onclick="closeModal('editDepartmentModal')" style="padding:0.5rem 1.25rem; border:2px solid #d1d5db; background:#fff; border-radius:8px; font-weight:600; cursor:pointer; color:#374151;">Cancel</button>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save"></i> Update Department
                 </button>
             </div>
         </form>
-    </div>
+</div>
 </div>
 
 <!-- Delete Form (hidden) -->
@@ -327,7 +324,7 @@ function editDepartment(data) {
     document.getElementById('edit_code').value = data.department_code;
     document.getElementById('edit_name').value = data.department_name;
     document.getElementById('edit_description').value = data.description || '';
-    Modal.open('editDepartmentModal');
+    openModal('editDepartmentModal');
 }
 
 function deleteDepartment(id, name) {
@@ -336,6 +333,21 @@ function deleteDepartment(id, name) {
         document.getElementById('deleteForm').submit();
     }
 }
+
+function openModal(id) {
+    var el = document.getElementById(id);
+    if (el) { el.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+}
+function closeModal(id) {
+    var el = document.getElementById(id);
+    if (el) { el.style.display = 'none'; document.body.style.overflow = ''; }
+}
+document.addEventListener('click', function(e) {
+    ['addDepartmentModal','editDepartmentModal'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el && e.target === el) closeModal(id);
+    });
+});
 </script>
 
 <?php require_once 'includes/footer.php'; ?>

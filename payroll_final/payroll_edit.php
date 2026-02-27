@@ -5,6 +5,7 @@
 
 require_once 'includes/config.php';
 require_once 'includes/auth.php';
+requireSuperAdmin();
 
 $pageTitle = 'Edit Payroll';
 $message = '';
@@ -61,6 +62,12 @@ $payroll = $conn->query("
 
 if (!$payroll) {
     header('Location: payroll.php');
+    exit;
+}
+
+// Block editing of Approved or Paid payroll records
+if (in_array($payroll['status'], ['Approved', 'Paid'])) {
+    header('Location: payroll_view.php?id=' . $id . '&locked=1');
     exit;
 }
 

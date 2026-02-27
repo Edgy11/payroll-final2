@@ -54,6 +54,7 @@ const Modal = {
     open(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
+            modal.style.display = 'flex';
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
         }
@@ -62,6 +63,7 @@ const Modal = {
     close(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
+            modal.style.display = 'none';
             modal.classList.remove('active');
             document.body.style.overflow = '';
         }
@@ -69,6 +71,7 @@ const Modal = {
     
     closeAll() {
         document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.style.display = 'none';
             modal.classList.remove('active');
         });
         document.body.style.overflow = '';
@@ -274,10 +277,21 @@ function filterTable(tableId, searchValue) {
 
 // Sidebar toggle for mobile
 function toggleSidebar() {
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebar) {
-        sidebar.classList.toggle('open');
-    }
+    const sidebar = document.getElementById('appSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (!sidebar) return;
+    const isOpen = sidebar.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('active', isOpen);
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+}
+
+function closeSidebar() {
+    const sidebar = document.getElementById('appSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (!sidebar) return;
+    sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
 }
 
 function initNavigation() {
@@ -403,6 +417,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize navigation
     initNavigation();
+
+    // ── Mobile sidebar ──────────────────────────────────────
+    // Close sidebar when a nav link is tapped on mobile
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', function() {
+            if (window.innerWidth < 992) closeSidebar();
+        });
+    });
+
+    // Close sidebar on resize to desktop
+    window.addEventListener('resize', function() {
+        if (window.innerWidth >= 992) closeSidebar();
+    });
     
     // Close modal on overlay click
     document.querySelectorAll('.modal-overlay').forEach(overlay => {

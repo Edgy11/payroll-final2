@@ -6,6 +6,7 @@
 
 require_once 'includes/config.php';
 require_once 'includes/auth.php';
+requireSuperAdmin();
 
 $pageTitle = 'Employees';
 $message = '';
@@ -571,7 +572,7 @@ require_once 'includes/header.php';
             Employee List
         </h2>
         <div class="btn-group">
-            <button class="btn btn-primary" onclick="Modal.open('addEmployeeModal')">
+            <button class="btn btn-primary" onclick="openModal('addEmployeeModal')">
                 <i class="fas fa-plus"></i> Add Employee
             </button>
         </div>
@@ -723,7 +724,7 @@ require_once 'includes/header.php';
                                 <i class="fas fa-users" style="font-size: 2rem; color: var(--gray-300); display: block; margin-bottom: var(--space-md);"></i>
                                 No employees found in this department. 
                                 <br>
-                                <button class="btn btn-primary" style="margin-top: var(--space-md);" onclick="Modal.open('addEmployeeModal')">
+                                <button class="btn btn-primary" style="margin-top: var(--space-md);" onclick="openModal('addEmployeeModal')">
                                     <i class="fas fa-plus"></i> Add First Employee
                                 </button>
                             </td>
@@ -736,14 +737,12 @@ require_once 'includes/header.php';
 </div>
 
 <!-- Add Employee Modal -->
-<div class="modal-overlay" id="addEmployeeModal">
-    <div class="modal modal-lg">
-        <div class="modal-header">
-            <h3 class="modal-title">Add New Employee</h3>
-            <button class="modal-close" onclick="Modal.close('addEmployeeModal')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
+<div id="addEmployeeModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:flex-start; justify-content:center; padding:2rem; overflow-y:auto;">
+<div style="background:#fff; border-radius:16px; width:100%; max-width:860px; margin:0 auto; box-shadow:0 25px 50px rgba(0,0,0,0.25); overflow:hidden;">
+    <div style="padding:1.25rem 1.5rem; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; justify-content:space-between; background:#1a3a5c;">
+        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;"><i class="fas fa-user-plus" style="margin-right:8px;"></i>Add New Employee</h3>
+        <button onclick="closeModal('addEmployeeModal')" style="border:none; background:rgba(255,255,255,0.15); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:0.9rem; color:#fff;">&#10005;</button>
+    </div>
         <form method="POST" id="addEmployeeForm">
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="department_id" value="<?php echo $selectedDeptId; ?>">
@@ -844,25 +843,23 @@ require_once 'includes/header.php';
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="Modal.close('addEmployeeModal')">Cancel</button>
+            <div style="padding:1rem 1.5rem; background:#f9fafb; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:0.75rem;">
+                <button type="button" onclick="closeModal('addEmployeeModal')" style="padding:0.5rem 1.25rem; border:2px solid #d1d5db; background:#fff; border-radius:8px; font-weight:600; cursor:pointer; color:#374151;">Cancel</button>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save"></i> Save Employee
                 </button>
             </div>
         </form>
-    </div>
+</div>
 </div>
 
 <!-- Edit Employee Modal -->
-<div class="modal-overlay" id="editEmployeeModal">
-    <div class="modal modal-lg">
-        <div class="modal-header">
-            <h3 class="modal-title">Edit Employee</h3>
-            <button class="modal-close" onclick="Modal.close('editEmployeeModal')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
+<div id="editEmployeeModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:flex-start; justify-content:center; padding:2rem; overflow-y:auto;">
+<div style="background:#fff; border-radius:16px; width:100%; max-width:860px; margin:0 auto; box-shadow:0 25px 50px rgba(0,0,0,0.25); overflow:hidden;">
+    <div style="padding:1.25rem 1.5rem; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; justify-content:space-between; background:#1a3a5c;">
+        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;"><i class="fas fa-user-edit" style="margin-right:8px;"></i>Edit Employee</h3>
+        <button onclick="closeModal('editEmployeeModal')" style="border:none; background:rgba(255,255,255,0.15); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:0.9rem; color:#fff;">&#10005;</button>
+    </div>
         <form method="POST" id="editEmployeeForm" action="employees.php?department_id=<?php echo $selectedDeptId; ?>">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="id" id="edit_id">
@@ -980,14 +977,14 @@ require_once 'includes/header.php';
                     </label>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="Modal.close('editEmployeeModal')">Cancel</button>
+            <div style="padding:1rem 1.5rem; background:#f9fafb; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:0.75rem;">
+                <button type="button" onclick="closeModal('editEmployeeModal')" style="padding:0.5rem 1.25rem; border:2px solid #d1d5db; background:#fff; border-radius:8px; font-weight:600; cursor:pointer; color:#374151;">Cancel</button>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save"></i> Update Employee
                 </button>
             </div>
         </form>
-    </div>
+</div>
 </div>
 
 <!-- Delete Form (hidden) -->
@@ -1068,7 +1065,7 @@ function editEmployee(data) {
     document.getElementById('edit_position_id').value = data.position_id || '';
     document.getElementById('edit_employment_status').value = data.employment_status;
     document.getElementById('edit_is_active').checked = data.is_active == 1;
-    Modal.open('editEmployeeModal');
+    openModal('editEmployeeModal');
 }
 
 function deleteEmployee(id, name) {
@@ -1077,6 +1074,22 @@ function deleteEmployee(id, name) {
         document.getElementById('deleteForm').submit();
     }
 }
+
+function openModal(id) {
+    var el = document.getElementById(id);
+    if (el) { el.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+}
+function closeModal(id) {
+    var el = document.getElementById(id);
+    if (el) { el.style.display = 'none'; document.body.style.overflow = ''; }
+}
+// Close on backdrop click
+document.addEventListener('click', function(e) {
+    ['addEmployeeModal','editEmployeeModal'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el && e.target === el) closeModal(id);
+    });
+});
 </script>
 
 <?php endif; ?>

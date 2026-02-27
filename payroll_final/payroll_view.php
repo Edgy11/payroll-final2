@@ -45,6 +45,15 @@ require_once 'includes/header.php';
     <h1 class="page-title">Payroll Details</h1>
 </div>
 
+<?php if (isset($_GET['locked'])): ?>
+<div class="alert alert-warning no-print">
+    <i class="alert-icon fas fa-lock"></i>
+    <div class="alert-content">
+        This payroll record is <strong><?php echo htmlspecialchars($payroll['status']); ?></strong> and cannot be edited.
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="card">
     <!-- Payroll Header -->
     <div class="payroll-header">
@@ -178,10 +187,22 @@ require_once 'includes/header.php';
                     <button class="btn btn-primary" onclick="window.print()">
                         <i class="fas fa-print"></i> Print
                     </button>
-                    <a href="payroll_edit.php?id=<?php echo $id; ?>" class="btn btn-warning">
-                        <i class="fas fa-edit"></i> Edit
-                    </a>
+                    <?php if ($payroll['status'] === 'Draft'): ?>
+                        <a href="payroll_edit.php?id=<?php echo $id; ?>" class="btn btn-warning">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                    <?php else: ?>
+                        <button class="btn btn-secondary" disabled title="<?php echo $payroll['status']; ?> payroll cannot be edited">
+                            <i class="fas fa-lock"></i> Locked
+                        </button>
+                    <?php endif; ?>
                 </div>
+                <?php if ($payroll['status'] !== 'Draft'): ?>
+                    <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--gray-500);">
+                        <i class="fas fa-info-circle"></i>
+                        <?php echo $payroll['status']; ?> records cannot be edited.
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

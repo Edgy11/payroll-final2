@@ -93,6 +93,39 @@ function getUserInfo() {
 }
 
 /**
+ * Get current user's role
+ */
+function getUserRole() {
+    return $_SESSION['role'] ?? '';
+}
+
+/**
+ * Check if current user is superadmin (admin1)
+ */
+function isSuperAdmin() {
+    $role = getUserRole();
+    return $role === 'superadmin' || $role === 'admin';
+}
+
+/**
+ * Check if current user is admin2 (limited access)
+ */
+function isAdmin2() {
+    return getUserRole() === 'admin2';
+}
+
+/**
+ * Require superadmin role — redirect with error if not superadmin
+ */
+function requireSuperAdmin() {
+    if (!isSuperAdmin()) {
+        $_SESSION['error_message'] = 'Access denied. You do not have permission to view this page.';
+        header('Location: index.php');
+        exit();
+    }
+}
+
+/**
  * Destroy session and logout
  */
 function destroySession() {

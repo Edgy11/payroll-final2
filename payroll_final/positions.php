@@ -6,6 +6,7 @@
 
 require_once 'includes/config.php';
 require_once 'includes/auth.php';
+requireSuperAdmin();
 
 $pageTitle = 'Positions';
 $message = '';
@@ -265,7 +266,7 @@ require_once 'includes/header.php';
                 <i class="fas fa-search"></i>
                 <input type="text" class="form-control" placeholder="Search positions..." id="searchInput" onkeyup="searchTable()">
             </div>
-            <button class="btn btn-primary" onclick="Modal.open('addPositionModal')">
+            <button class="btn btn-primary" onclick="openModal('addPositionModal')">
                 <i class="fas fa-plus"></i> Add Position
             </button>
         </div>
@@ -386,14 +387,12 @@ require_once 'includes/header.php';
 </div>
 
 <!-- Add Position Modal -->
-<div class="modal-overlay" id="addPositionModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3 class="modal-title">Add New Position</h3>
-            <button class="modal-close" onclick="Modal.close('addPositionModal')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
+<div id="addPositionModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:flex-start; justify-content:center; padding:2rem; overflow-y:auto;">
+<div style="background:#fff; border-radius:16px; width:100%; max-width:640px; margin:0 auto; box-shadow:0 25px 50px rgba(0,0,0,0.25); overflow:hidden;">
+    <div style="padding:1.25rem 1.5rem; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; justify-content:space-between; background:#1a3a5c;">
+        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;"><i class="fas fa-plus-circle" style="margin-right:8px;"></i>Add New Position</h3>
+        <button onclick="closeModal('addPositionModal')" style="border:none; background:rgba(255,255,255,0.15); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:0.9rem; color:#fff;">&#10005;</button>
+    </div>
         <form method="POST" id="addPositionForm">
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="basic_salary" id="add_basic_salary">
@@ -522,25 +521,23 @@ require_once 'includes/header.php';
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="Modal.close('addPositionModal')">Cancel</button>
+            <div style="padding:1rem 1.5rem; background:#f9fafb; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:0.75rem;">
+                <button type="button" onclick="closeModal('addPositionModal')" style="padding:0.5rem 1.25rem; border:2px solid #d1d5db; background:#fff; border-radius:8px; font-weight:600; cursor:pointer; color:#374151;">Cancel</button>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save"></i> Save Position
                 </button>
             </div>
         </form>
-    </div>
+</div>
 </div>
 
 <!-- Edit Position Modal -->
-<div class="modal-overlay" id="editPositionModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3 class="modal-title">Edit Position</h3>
-            <button class="modal-close" onclick="Modal.close('editPositionModal')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
+<div id="editPositionModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:flex-start; justify-content:center; padding:2rem; overflow-y:auto;">
+<div style="background:#fff; border-radius:16px; width:100%; max-width:640px; margin:0 auto; box-shadow:0 25px 50px rgba(0,0,0,0.25); overflow:hidden;">
+    <div style="padding:1.25rem 1.5rem; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; justify-content:space-between; background:#1a3a5c;">
+        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;"><i class="fas fa-edit" style="margin-right:8px;"></i>Edit Position</h3>
+        <button onclick="closeModal('editPositionModal')" style="border:none; background:rgba(255,255,255,0.15); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:0.9rem; color:#fff;">&#10005;</button>
+    </div>
         <form method="POST" id="editPositionForm">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="id" id="edit_id">
@@ -630,14 +627,14 @@ require_once 'includes/header.php';
                     <small class="text-muted">New Salary ID will be assigned based on selection</small>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="Modal.close('editPositionModal')">Cancel</button>
+            <div style="padding:1rem 1.5rem; background:#f9fafb; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:0.75rem;">
+                <button type="button" onclick="closeModal('editPositionModal')" style="padding:0.5rem 1.25rem; border:2px solid #d1d5db; background:#fff; border-radius:8px; font-weight:600; cursor:pointer; color:#374151;">Cancel</button>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save"></i> Update Position
                 </button>
             </div>
         </form>
-    </div>
+</div>
 </div>
 
 <!-- Delete Form (hidden) -->
@@ -712,7 +709,7 @@ function editPosition(data) {
     // Update salary display
     updateSalaryEdit();
     
-    Modal.open('editPositionModal');
+    openModal('editPositionModal');
 }
 
 function deletePosition(id, title, employeeCount) {
@@ -745,6 +742,21 @@ function searchTable() {
         tr[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? '' : 'none';
     }
 }
+
+function openModal(id) {
+    var el = document.getElementById(id);
+    if (el) { el.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+}
+function closeModal(id) {
+    var el = document.getElementById(id);
+    if (el) { el.style.display = 'none'; document.body.style.overflow = ''; }
+}
+document.addEventListener('click', function(e) {
+    ['addPositionModal','editPositionModal'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el && e.target === el) closeModal(id);
+    });
+});
 </script>
 
 <style>

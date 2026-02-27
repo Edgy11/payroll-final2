@@ -6,6 +6,7 @@
 
 require_once 'includes/config.php';
 require_once 'includes/auth.php';
+requireSuperAdmin();
 
 $pageTitle = 'Create Batch Payroll';
 $message = '';
@@ -27,11 +28,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_batch'])) {
     $salaryIds = $_POST['salary_ids'] ?? [];
     
     // Optional deductions (same for all or individual)
-    $provident = (float)($_POST['provident'] ?? 0);
     $bcgeu = (float)($_POST['bcgeu'] ?? 0);
-    $nocgem = (float)($_POST['nocgem'] ?? 0);
-    $bacgem = (float)($_POST['bacgem'] ?? 0);
     $otherDeductions = (float)($_POST['other_deductions'] ?? 0);
+
+    // Provident sub-fields
+    $provident_fund       = (float)($_POST['provident_fund']       ?? 0);
+    $provident_fund_loan  = (float)($_POST['provident_fund_loan']  ?? 0);
+    $provident_edu_loan   = (float)($_POST['provident_edu_loan']   ?? 0);
+    $provident_term_loan  = (float)($_POST['provident_term_loan']  ?? 0);
+    $provident = $provident_fund + $provident_fund_loan + $provident_edu_loan + $provident_term_loan;
+
+    // Pag-IBIG sub-fields (overrides auto-calculated pagibig)
+    $pagibig_multi        = (float)($_POST['pagibig_multi']        ?? 0);
+    $pagibig_emergency    = (float)($_POST['pagibig_emergency']    ?? 0);
+    $pagibig_premium      = (float)($_POST['pagibig_premium']      ?? 0);
+    $pagibig_mp2          = (float)($_POST['pagibig_mp2']          ?? 0);
+    $pagibig_housing      = (float)($_POST['pagibig_housing']      ?? 0);
+    $pagibig_extra = $pagibig_multi + $pagibig_emergency + $pagibig_premium + $pagibig_mp2 + $pagibig_housing;
+
+    // GSIS sub-fields (overrides auto-calculated gsis)
+    $gsis_life_ret        = (float)($_POST['gsis_life_ret']        ?? 0);
+    $gsis_emergency       = (float)($_POST['gsis_emergency']       ?? 0);
+    $gsis_cpl             = (float)($_POST['gsis_cpl']             ?? 0);
+    $gsis_gpal            = (float)($_POST['gsis_gpal']            ?? 0);
+    $gsis_mpl             = (float)($_POST['gsis_mpl']             ?? 0);
+    $gsis_mpl_lite        = (float)($_POST['gsis_mpl_lite']        ?? 0);
+    $gsis_policy_loan     = (float)($_POST['gsis_policy_loan']     ?? 0);
+    $gsis_extra = $gsis_life_ret + $gsis_emergency + $gsis_cpl + $gsis_gpal + $gsis_mpl + $gsis_mpl_lite + $gsis_policy_loan;
+
+    // BACGEM sub-fields
+    $bacgem_edu_loan  = (float)($_POST['bacgem_edu_loan']  ?? 0);
+    $bacgem_grocery   = (float)($_POST['bacgem_grocery']   ?? 0);
+    $bacgem_others    = (float)($_POST['bacgem_others']    ?? 0);
+    $bacgem_hcp       = (float)($_POST['bacgem_hcp']       ?? 0);
+    $bacgem_loan      = (float)($_POST['bacgem_loan']      ?? 0);
+    $bacgem = $bacgem_edu_loan + $bacgem_grocery + $bacgem_others + $bacgem_hcp + $bacgem_loan;
+
+    // NOCGEM sub-fields
+    $nocgem_edu_loan     = (float)($_POST['nocgem_edu_loan']     ?? 0);
+    $nocgem_emergency    = (float)($_POST['nocgem_emergency']    ?? 0);
+    $nocgem_grocery      = (float)($_POST['nocgem_grocery']      ?? 0);
+    $nocgem_hospital     = (float)($_POST['nocgem_hospital']     ?? 0);
+    $nocgem_others       = (float)($_POST['nocgem_others']       ?? 0);
+    $nocgem_plp          = (float)($_POST['nocgem_plp']          ?? 0);
+    $nocgem_regular_loan = (float)($_POST['nocgem_regular_loan'] ?? 0);
+    $nocgem = $nocgem_edu_loan + $nocgem_emergency + $nocgem_grocery + $nocgem_hospital + $nocgem_others + $nocgem_plp + $nocgem_regular_loan;
     
     $successCount = 0;
     $skipCount = 0;
@@ -63,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_batch'])) {
         $wtax = calculateWithholdingTax($basicSalary);
         
         $grossPay = $basicSalary + $pera;
-        $totalDeductions = $gsis + $philhealth + $pagibig + $wtax + $provident + $bcgeu + $nocgem + $bacgem + $otherDeductions;
+        $totalDeductions = $gsis + $gsis_extra + $philhealth + $pagibig + $pagibig_extra + $wtax + $provident + $bcgeu + $nocgem + $bacgem + $otherDeductions;
         $netPay = $grossPay - $totalDeductions;
         $status = 'Draft';
         
@@ -448,6 +489,136 @@ require_once 'includes/header.php';
 .select-all-row td {
     padding: 8px 16px !important;
 }
+
+/* ── Cooperative Deduction Blocks ── */
+.coop-block {
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.coop-block:focus-within {
+    border-color: #2d6394;
+}
+
+.coop-block-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: #f8fafc;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+
+.coop-block-header:hover {
+    background: #eef4fb;
+}
+
+.coop-block-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.coop-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+}
+
+.bacgem-tag {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.nocgem-tag {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.coop-label {
+    font-size: 0.9rem;
+    color: #374151;
+    font-weight: 600;
+}
+
+.coop-block-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.coop-total {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #374151;
+    background: #e5e7eb;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+.coop-chevron {
+    color: #6b7280;
+    transition: transform 0.25s;
+    font-size: 0.85rem;
+}
+
+.coop-chevron.open {
+    transform: rotate(180deg);
+}
+
+.coop-block-body {
+    display: none;
+    padding: 18px;
+    background: #fff;
+    border-top: 1px solid #e5e7eb;
+    animation: slideDown 0.2s ease;
+}
+
+.coop-block-body.open {
+    display: block;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.coop-subfields {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+}
+
+.coop-subfield-item label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 5px;
+}
+
+.coop-subfield-item input {
+    width: 100%;
+    padding: 9px 10px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    text-align: right;
+    font-size: 0.9rem;
+    transition: border-color 0.15s;
+}
+
+.coop-subfield-item input:focus {
+    outline: none;
+    border-color: #2d6394;
+}
+
 </style>
 
 <?php if ($selectedDeptId == 0): ?>
@@ -612,31 +783,230 @@ require_once 'includes/header.php';
     <!-- Common Deductions -->
     <div class="common-deductions">
         <h3><i class="fas fa-minus-circle"></i> Additional Deductions (Applied to All)</h3>
-        <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 1rem;">
-            Note: GSIS (9%), PhilHealth, Pag-IBIG, and Withholding Tax are calculated automatically.
+        <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 1.25rem;">
+            Note: GSIS (9%), PhilHealth, Pag-IBIG, and Withholding Tax are calculated automatically. Use the sections below to add extra loan/contribution deductions on top.
         </p>
-        <div class="deduction-grid">
-            <div class="deduction-item">
-                <label>Provident Fund</label>
-                <input type="number" name="provident" value="0.00" step="0.01" min="0">
-            </div>
+
+        <!-- Row 1: BCGEU, Other -->
+        <div class="deduction-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 1.25rem;">
             <div class="deduction-item">
                 <label>BCGEU</label>
                 <input type="number" name="bcgeu" value="0.00" step="0.01" min="0">
             </div>
             <div class="deduction-item">
-                <label>NOCGEM</label>
-                <input type="number" name="nocgem" value="0.00" step="0.01" min="0">
-            </div>
-            <div class="deduction-item">
-                <label>BACGEM</label>
-                <input type="number" name="bacgem" value="0.00" step="0.01" min="0">
-            </div>
-            <div class="deduction-item">
-                <label>Other</label>
+                <label>Other Deductions</label>
                 <input type="number" name="other_deductions" value="0.00" step="0.01" min="0">
             </div>
         </div>
+
+        <!-- PROVIDENT Expandable Block -->
+        <div class="coop-block" id="provident-block" style="margin-bottom: 1rem;">
+            <div class="coop-block-header" onclick="toggleCoopBlock('provident')">
+                <div class="coop-block-title">
+                    <span class="coop-tag" style="background:#ede9fe;color:#5b21b6;">PROVIDENT</span>
+                    <span class="coop-label">Provident Fund Contributions & Loans</span>
+                </div>
+                <div class="coop-block-right">
+                    <span class="coop-total" id="provident-total-display">Total: ₱0.00</span>
+                    <i class="fas fa-chevron-down coop-chevron" id="provident-chevron"></i>
+                </div>
+            </div>
+            <div class="coop-block-body" id="provident-body">
+                <div class="coop-subfields" style="grid-template-columns: repeat(4, 1fr);">
+                    <div class="coop-subfield-item">
+                        <label>Provident Fund</label>
+                        <input type="number" name="provident_fund" class="provident-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('provident')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Provident Fund Loan</label>
+                        <input type="number" name="provident_fund_loan" class="provident-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('provident')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Education Loan</label>
+                        <input type="number" name="provident_edu_loan" class="provident-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('provident')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Term Loan</label>
+                        <input type="number" name="provident_term_loan" class="provident-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('provident')">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAG-IBIG Expandable Block -->
+        <div class="coop-block" id="pagibig-block" style="margin-bottom: 1rem;">
+            <div class="coop-block-header" onclick="toggleCoopBlock('pagibig')">
+                <div class="coop-block-title">
+                    <span class="coop-tag" style="background:#fce7f3;color:#9d174d;">PAG-IBIG</span>
+                    <span class="coop-label">Pag-IBIG Fund Loans & Contributions</span>
+                </div>
+                <div class="coop-block-right">
+                    <span class="coop-total" id="pagibig-total-display">Total: ₱0.00</span>
+                    <i class="fas fa-chevron-down coop-chevron" id="pagibig-chevron"></i>
+                </div>
+            </div>
+            <div class="coop-block-body" id="pagibig-body">
+                <p style="font-size:0.78rem;color:#9ca3af;margin-bottom:12px;">
+                    <i class="fas fa-info-circle"></i> The standard Pag-IBIG premium is auto-calculated. Enter amounts here for <strong>additional</strong> loan payments.
+                </p>
+                <div class="coop-subfields" style="grid-template-columns: repeat(5, 1fr);">
+                    <div class="coop-subfield-item">
+                        <label>Multi-Purpose Loan</label>
+                        <input type="number" name="pagibig_multi" class="pagibig-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('pagibig')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Emergency Loan</label>
+                        <input type="number" name="pagibig_emergency" class="pagibig-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('pagibig')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Premium</label>
+                        <input type="number" name="pagibig_premium" class="pagibig-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('pagibig')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>MP2</label>
+                        <input type="number" name="pagibig_mp2" class="pagibig-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('pagibig')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Housing Loan</label>
+                        <input type="number" name="pagibig_housing" class="pagibig-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('pagibig')">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GSIS Expandable Block -->
+        <div class="coop-block" id="gsis-block" style="margin-bottom: 1rem;">
+            <div class="coop-block-header" onclick="toggleCoopBlock('gsis')">
+                <div class="coop-block-title">
+                    <span class="coop-tag" style="background:#dcfce7;color:#14532d;">GSIS</span>
+                    <span class="coop-label">GSIS Loans & Policy Deductions</span>
+                </div>
+                <div class="coop-block-right">
+                    <span class="coop-total" id="gsis-total-display">Total: ₱0.00</span>
+                    <i class="fas fa-chevron-down coop-chevron" id="gsis-chevron"></i>
+                </div>
+            </div>
+            <div class="coop-block-body" id="gsis-body">
+                <p style="font-size:0.78rem;color:#9ca3af;margin-bottom:12px;">
+                    <i class="fas fa-info-circle"></i> The standard GSIS life/retirement contribution (9%) is auto-calculated. Enter amounts here for <strong>additional</strong> loan payments.
+                </p>
+                <div class="coop-subfields" style="grid-template-columns: repeat(4, 1fr);">
+                    <div class="coop-subfield-item">
+                        <label>GSIS Life & Ret.</label>
+                        <input type="number" name="gsis_life_ret" class="gsis-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('gsis')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Emergency Loan</label>
+                        <input type="number" name="gsis_emergency" class="gsis-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('gsis')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>GSIS-CPL</label>
+                        <input type="number" name="gsis_cpl" class="gsis-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('gsis')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>GSIS-GPAL</label>
+                        <input type="number" name="gsis_gpal" class="gsis-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('gsis')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>GSIS-MPL</label>
+                        <input type="number" name="gsis_mpl" class="gsis-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('gsis')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>GSIS-MPL Lite</label>
+                        <input type="number" name="gsis_mpl_lite" class="gsis-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('gsis')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Policy Loan</label>
+                        <input type="number" name="gsis_policy_loan" class="gsis-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('gsis')">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BACGEM Expandable Block -->
+        <div class="coop-block" id="bacgem-block" style="margin-bottom: 1rem;">
+            <div class="coop-block-header" onclick="toggleCoopBlock('bacgem')">
+                <div class="coop-block-title">
+                    <span class="coop-tag bacgem-tag">BACGEM</span>
+                    <span class="coop-label">BAC General Employees Multi-purpose Cooperative</span>
+                </div>
+                <div class="coop-block-right">
+                    <span class="coop-total" id="bacgem-total-display">Total: ₱0.00</span>
+                    <i class="fas fa-chevron-down coop-chevron" id="bacgem-chevron"></i>
+                </div>
+            </div>
+            <div class="coop-block-body" id="bacgem-body">
+                <div class="coop-subfields">
+                    <div class="coop-subfield-item">
+                        <label>Education Loan</label>
+                        <input type="number" name="bacgem_edu_loan" class="bacgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('bacgem')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Grocery</label>
+                        <input type="number" name="bacgem_grocery" class="bacgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('bacgem')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Others</label>
+                        <input type="number" name="bacgem_others" class="bacgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('bacgem')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>HCP</label>
+                        <input type="number" name="bacgem_hcp" class="bacgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('bacgem')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Loan</label>
+                        <input type="number" name="bacgem_loan" class="bacgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('bacgem')">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOCGEM Expandable Block -->
+        <div class="coop-block" id="nocgem-block">
+            <div class="coop-block-header" onclick="toggleCoopBlock('nocgem')">
+                <div class="coop-block-title">
+                    <span class="coop-tag nocgem-tag">NOCGEM</span>
+                    <span class="coop-label">NOC General Employees Multi-purpose Cooperative</span>
+                </div>
+                <div class="coop-block-right">
+                    <span class="coop-total" id="nocgem-total-display">Total: ₱0.00</span>
+                    <i class="fas fa-chevron-down coop-chevron" id="nocgem-chevron"></i>
+                </div>
+            </div>
+            <div class="coop-block-body" id="nocgem-body">
+                <div class="coop-subfields" style="grid-template-columns: repeat(4, 1fr);">
+                    <div class="coop-subfield-item">
+                        <label>Education Loan</label>
+                        <input type="number" name="nocgem_edu_loan" class="nocgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('nocgem')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Emergency</label>
+                        <input type="number" name="nocgem_emergency" class="nocgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('nocgem')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Grocery</label>
+                        <input type="number" name="nocgem_grocery" class="nocgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('nocgem')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Hospital</label>
+                        <input type="number" name="nocgem_hospital" class="nocgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('nocgem')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Others</label>
+                        <input type="number" name="nocgem_others" class="nocgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('nocgem')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>PLP</label>
+                        <input type="number" name="nocgem_plp" class="nocgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('nocgem')">
+                    </div>
+                    <div class="coop-subfield-item">
+                        <label>Regular Loans</label>
+                        <input type="number" name="nocgem_regular_loan" class="nocgem-sub" value="0.00" step="0.01" min="0" oninput="updateCoopTotal('nocgem')">
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
     
     <!-- Submit -->
@@ -716,6 +1086,26 @@ document.getElementById('batchForm').addEventListener('submit', function(e) {
 document.addEventListener('DOMContentLoaded', function() {
     updatePeriodOptions();
 });
+
+// ── Cooperative block toggle ──
+function toggleCoopBlock(prefix) {
+    const body    = document.getElementById(prefix + '-body');
+    const chevron = document.getElementById(prefix + '-chevron');
+    body.classList.toggle('open');
+    chevron.classList.toggle('open');
+}
+
+// ── Live total for coop sub-fields ──
+function updateCoopTotal(prefix) {
+    const inputs = document.querySelectorAll('.' + prefix + '-sub');
+    let total = 0;
+    inputs.forEach(function(inp) {
+        total += parseFloat(inp.value) || 0;
+    });
+    document.getElementById(prefix + '-total-display').textContent =
+        'Total: ₱' + total.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 </script>
 
 <?php else: ?>

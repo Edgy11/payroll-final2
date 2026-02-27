@@ -1,7 +1,7 @@
 <?php
 /**
- * Payroll System - Print Payroll (BCD City Hall Format)
- * Official General Payroll format for Bacolod City
+ * Payroll System - General Payroll Print
+ * Format matches official Oracle dot-matrix voucher photo exactly
  */
 
 require_once 'includes/config.php';
@@ -10,515 +10,405 @@ require_once 'includes/auth.php';
 $pageTitle = 'Print Payroll';
 
 $deptId = isset($_GET['department_id']) ? (int)$_GET['department_id'] : 0;
-$month = isset($_GET['month']) ? sanitize($_GET['month']) : date('F');
-$year = isset($_GET['year']) ? (int)$_GET['year'] : date('Y');
-$period = isset($_GET['period']) ? sanitize($_GET['period']) : '1-15';
+$month  = isset($_GET['month'])         ? sanitize($_GET['month'])      : date('F');
+$year   = isset($_GET['year'])          ? (int)$_GET['year']            : date('Y');
 
-if ($deptId <= 0) {
-    header('Location: payroll.php');
-    exit;
-}
+if ($deptId <= 0) { header('Location: payroll.php'); exit; }
 
-// Get department info
 $dept = $conn->query("SELECT * FROM departments WHERE id = $deptId")->fetch_assoc();
+if (!$dept) { header('Location: payroll.php'); exit; }
 
-if (!$dept) {
-    header('Location: payroll.php');
-    exit;
-}
-
-// Get payroll records for this department and period
+// Fetch per-period records so we can split 1-15 and 16-31 net pays
 $payrollRecords = $conn->query("
     SELECT 
-        p.*,
-        e.employee_id as emp_number,
-        e.first_name,
-        e.last_name,
-        e.middle_name,
-        e.date_hired,
-        pos.position_title,
-        pos.salary_grade,
-        s.step_no,
-        s.salary_rate
+        e.id            AS emp_id,
+        e.employee_id   AS emp_number,
+        e.first_name, e.last_name, e.middle_name,
+        pos.position_title, pos.salary_grade,
+        s.step_no, s.salary_rate,
+        p.period_type,
+        p.basic_salary,
+        p.pera,
+        COALESCE(p.aca,0)       AS aca,
+        p.gross_pay,
+        p.wtax,
+        p.philhealth,
+        p.gsis,
+        p.pagibig,
+        COALESCE(p.bcc,0)       AS bcc,
+        p.provident,
+        p.bcgeu,
+        p.nocgem,
+        p.bacgem,
+        p.other_deductions,
+        p.total_deductions,
+        p.net_pay
     FROM payroll p
-    LEFT JOIN employees e ON p.employee_id = e.id
+    LEFT JOIN employees e   ON p.employee_id = e.id
     LEFT JOIN positions pos ON e.position_id = pos.id
-    LEFT JOIN salary s ON p.salary_id = s.salary_id
-    WHERE p.department_id = $deptId 
-      AND p.payroll_month = '$month' 
-      AND p.payroll_year = $year
-      AND p.period_type = '$period'
-    ORDER BY e.last_name, e.first_name
+    LEFT JOIN salary    s   ON p.salary_id   = s.salary_id
+    WHERE p.department_id = $deptId
+      AND p.payroll_month = '$month'
+      AND p.payroll_year  = $year
+      AND p.status        = 'Paid'
+    ORDER BY e.last_name, e.first_name, p.period_type
 ");
 
-// Calculate totals
-$totals = [
-    'basic_salary' => 0,
-    'pera' => 0,
-    'gross_pay' => 0,
-    'wtax' => 0,
-    'gsis' => 0,
-    'philhealth' => 0,
-    'pagibig' => 0,
-    'total_deductions' => 0,
-    'net_pay' => 0
-];
+// Group by employee: combine 1-15 and 16-31, split net pays
+$empMap = [];
+if ($payrollRecords && $payrollRecords->num_rows > 0) {
+    while ($r = $payrollRecords->fetch_assoc()) {
+        $eid = $r['emp_id'];
+        if (!isset($empMap[$eid])) {
+            $empMap[$eid] = [
+                'emp_number'    => $r['emp_number'],
+                'last_name'     => $r['last_name'],
+                'first_name'    => $r['first_name'],
+                'middle_name'   => $r['middle_name'],
+                'position_title'=> $r['position_title'],
+                'salary_grade'  => $r['salary_grade'],
+                'salary_rate'   => $r['salary_rate'],
+                'basic_salary'  => 0,
+                'pera'          => 0,
+                'gross_pay'     => 0,
+                'wtax'          => 0,
+                'philhealth'    => 0,
+                'gsis'          => 0,
+                'pagibig'       => 0,
+                'provident'     => 0,
+                'bcgeu'         => 0,
+                'nocgem'        => 0,
+                'bacgem'        => 0,
+                'other_deductions' => 0,
+                'total_deductions' => 0,
+                'net_1_15'      => 0,
+                'net_16_31'     => 0,
+            ];
+        }
+        $empMap[$eid]['basic_salary']     += $r['basic_salary'];
+        $empMap[$eid]['pera']             += $r['pera'];
+        $empMap[$eid]['gross_pay']        += $r['gross_pay'];
+        $empMap[$eid]['wtax']             += $r['wtax'];
+        $empMap[$eid]['philhealth']       += $r['philhealth'];
+        $empMap[$eid]['gsis']             += $r['gsis'];
+        $empMap[$eid]['pagibig']          += $r['pagibig'];
+        $empMap[$eid]['provident']        += $r['provident'];
+        $empMap[$eid]['bcgeu']            += $r['bcgeu'];
+        $empMap[$eid]['nocgem']           += $r['nocgem'];
+        $empMap[$eid]['bacgem']           += $r['bacgem'];
+        $empMap[$eid]['other_deductions'] += $r['other_deductions'];
+        $empMap[$eid]['total_deductions'] += $r['total_deductions'];
+        if ($r['period_type'] === '1-15') {
+            $empMap[$eid]['net_1_15']  += $r['net_pay'];
+        } else {
+            $empMap[$eid]['net_16_31'] += $r['net_pay'];
+        }
+    }
+}
+
+$rows           = array_values($empMap);
+$hasPaidRecords = count($rows) > 0;
+$rowsPerSheet   = 14;
+$totalSheets    = $hasPaidRecords ? (int)ceil(count($rows) / $rowsPerSheet) : 1;
+$printDate      = date('m/d/Y') . ' ' . date('H:i:s');
+$periodLabel    = strtoupper($month) . ' ' . $year;
+
+function fmt($v) { return number_format((float)$v, 2); }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>General Payroll - <?php echo htmlspecialchars($dept['department_name']); ?></title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Arial', sans-serif;
-            font-size: 9pt;
-            line-height: 1.3;
-            color: #000;
-            background: #fff;
-        }
-        
-        .print-container {
-            width: 13in;
-            padding: 0.3in;
-            margin: 0 auto;
-            background: #fff;
-        }
-        
-        /* Header */
-        .payroll-header {
-            text-align: center;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #000;
-            padding-bottom: 10px;
-        }
-        
-        .header-top {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 8px;
-        }
-        
-        .logo {
-            width: 70px;
-            height: 70px;
-        }
-        
-        .header-text {
-            text-align: center;
-        }
-        
-        .republic {
-            font-size: 10pt;
-            font-weight: normal;
-        }
-        
-        .city-name {
-            font-size: 14pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-        
-        .office-name {
-            font-size: 11pt;
-            font-weight: bold;
-            margin-top: 3px;
-        }
-        
-        .payroll-title {
-            font-size: 16pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            margin: 15px 0 10px;
-        }
-        
-        .payroll-info {
-            display: flex;
-            justify-content: space-between;
-            font-size: 10pt;
-            margin-top: 10px;
-        }
-        
-        .payroll-info-item {
-            display: flex;
-            gap: 5px;
-        }
-        
-        .payroll-info-label {
-            font-weight: bold;
-        }
-        
-        /* Table */
-        .payroll-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 8pt;
-            margin-bottom: 20px;
-        }
-        
-        .payroll-table th,
-        .payroll-table td {
-            border: 1px solid #000;
-            padding: 4px 6px;
-            text-align: center;
-            vertical-align: middle;
-        }
-        
-        .payroll-table th {
-            background: #f0f0f0;
-            font-weight: bold;
-            font-size: 7.5pt;
-            text-transform: uppercase;
-        }
-        
-        .payroll-table th.rotate {
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
-            transform: rotate(180deg);
-            height: 80px;
-            padding: 5px 2px;
-            font-size: 7pt;
-        }
-        
-        .payroll-table td.name {
-            text-align: left;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-        
-        .payroll-table td.position {
-            text-align: left;
-            font-size: 7.5pt;
-        }
-        
-        .payroll-table td.currency {
-            text-align: right;
-            font-family: 'Courier New', monospace;
-            font-size: 8pt;
-        }
-        
-        .payroll-table tr.total-row {
-            background: #e8e8e8;
-            font-weight: bold;
-        }
-        
-        .payroll-table tr.total-row td {
-            border-top: 2px solid #000;
-            padding: 6px;
-        }
-        
-        .col-no { width: 25px; }
-        .col-name { width: 150px; }
-        .col-position { width: 120px; }
-        .col-sg { width: 35px; }
-        .col-step { width: 35px; }
-        .col-money { width: 75px; }
-        .col-deduction { width: 60px; }
-        .col-signature { width: 100px; }
-        
-        /* Footer */
-        .payroll-footer {
-            margin-top: 20px;
-            font-size: 9pt;
-        }
-        
-        .certification {
-            text-align: center;
-            font-style: italic;
-            margin-bottom: 30px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            background: #fafafa;
-        }
-        
-        .signatures {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin-top: 40px;
-        }
-        
-        .signature-box {
-            text-align: center;
-        }
-        
-        .signature-line {
-            border-top: 1px solid #000;
-            margin-top: 40px;
-            padding-top: 5px;
-            font-weight: bold;
-        }
-        
-        .signature-title {
-            font-size: 8pt;
-            color: #333;
-        }
-        
-        /* Print styles */
-        @media print {
-            body {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            
-            .print-container {
-                width: 100%;
-                padding: 0;
-            }
-            
-            .no-print {
-                display: none !important;
-            }
-            
-            @page {
-                size: legal landscape;
-                margin: 0.3in;
-            }
-        }
-        
-        /* Screen controls */
-        .print-controls {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            display: flex;
-            gap: 10px;
-            z-index: 1000;
-        }
-        
-        .print-controls button,
-        .print-controls a {
-            padding: 12px 24px;
-            font-size: 14px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .btn-print {
-            background: #2d6394;
-            color: white;
-        }
-        
-        .btn-print:hover {
-            background: #1e4a70;
-        }
-        
-        .btn-back {
-            background: #6b7280;
-            color: white;
-        }
-        
-        .btn-back:hover {
-            background: #4b5563;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>General Payroll – <?php echo htmlspecialchars($dept['department_name']); ?></title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Courier New',Courier,monospace;font-size:6.5pt;color:#000;background:#bbb}
+
+.sheet{
+    width:17in;background:#fff;
+    margin:16px auto;
+    padding:.22in .28in .18in;
+    page-break-after:always;
+}
+.sheet:last-child{page-break-after:avoid}
+
+.sys-line{
+    display:flex;justify-content:space-between;
+    font-size:5.8pt;margin-bottom:3px;
+}
+
+.header-block{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    margin-bottom:2px;
+}
+.oracle-left{display:flex;align-items:flex-start;gap:7px;}
+.oracle-box{
+    font-family:'Arial Black',Arial,sans-serif;font-size:10pt;font-weight:900;
+    letter-spacing:3px;color:#777;border:2px solid #999;padding:2px 6px;
+    background:linear-gradient(135deg,#e5e5e5,#ccc);
+    text-shadow:1px 1px 1px #bbb;box-shadow:inset 0 0 3px rgba(0,0,0,0.2);
+    white-space:nowrap;
+}
+.oracle-meta{font-size:5.8pt;line-height:1.65;}
+
+.header-center{text-align:center;flex:1;padding:0 10px;}
+.main-title{font-family:Arial,sans-serif;font-size:12pt;font-weight:bold;letter-spacing:3px;}
+.sub-title{font-family:Arial,sans-serif;font-size:7.5pt;font-weight:bold;margin-top:1px;}
+.dept-line{font-size:7pt;margin-top:1px;}
+.period-for{font-size:6.5pt;margin-top:1px;font-weight:bold;}
+
+.header-right{text-align:right;font-size:6pt;min-width:80px;}
+
+.ack{font-size:5.8pt;font-style:italic;margin:2px 0 2px;line-height:1.3;}
+
+/* ── Table ── */
+table.pv{width:100%;border-collapse:collapse;font-size:5.8pt;}
+table.pv th,table.pv td{
+    border:1px solid #000;padding:1px 2px;
+    text-align:center;vertical-align:middle;
+    white-space:nowrap;line-height:1.2;
+}
+table.pv th{font-weight:bold;font-size:5.3pt;background:#f0f0f0;line-height:1.3;}
+table.pv td.L{text-align:left;}
+table.pv td.R{text-align:right;}
+table.pv td.name-col{text-align:left;white-space:normal;min-width:100px;max-width:130px;line-height:1.2;}
+table.pv td.pos-col{text-align:left;white-space:normal;min-width:50px;max-width:65px;font-size:5.3pt;}
+table.pv tr.tot-row td{font-weight:bold;background:#e8e8e8;border-top:2px solid #000;}
+table.pv tr.grand-row td{font-weight:bold;background:#d5d5f0;border-top:2px solid #000;}
+
+.sheet-footer{
+    display:flex;justify-content:space-between;
+    font-size:5.5pt;margin-top:3px;
+}
+
+.no-records{text-align:center;padding:50px;font-size:11pt;color:#555;}
+
+.print-controls{position:fixed;top:14px;right:14px;display:flex;gap:8px;z-index:999;}
+.print-controls button,.print-controls a{
+    padding:8px 18px;font-size:12px;font-weight:bold;border:none;border-radius:6px;
+    cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;
+}
+.btn-print{background:#1a3a5c;color:#fff}.btn-print:hover{background:#0e2540}
+.btn-print:disabled{background:#9ca3af;cursor:not-allowed}
+.btn-back{background:#6b7280;color:#fff}.btn-back:hover{background:#4b5563}
+
+@media print{
+    body{background:#fff}
+    .print-controls{display:none!important}
+    .sheet{margin:0;width:100%;padding:.15in .18in .1in;}
+    @page{size:17in 11in landscape;margin:0}
+}
+</style>
 </head>
 <body>
-    <div class="print-controls no-print">
-        <button class="btn-print" onclick="window.print()">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
-                <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
-            </svg>
-            Print Payroll
-        </button>
-        <a href="payroll.php?department_id=<?php echo $deptId; ?>" class="btn-back">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
-            </svg>
-            Back
-        </a>
+
+<div class="print-controls">
+    <button class="btn-print" onclick="window.print()" <?php echo !$hasPaidRecords?'disabled':''; ?>>
+        &#128438; Print Payroll
+    </button>
+    <a class="btn-back" href="payroll.php?department_id=<?php echo $deptId; ?>&month=<?php echo urlencode($month); ?>&year=<?php echo $year; ?>">
+        &larr; Back
+    </a>
+</div>
+
+<?php if (!$hasPaidRecords): ?>
+<div class="sheet">
+  <div class="no-records">
+    <p>&#128274; No <strong>Paid</strong> payroll records for <strong><?php echo "$month $year"; ?></strong>.</p>
+    <p style="margin-top:10px;font-size:9pt;">Only <em>Paid</em> records can be printed.</p>
+  </div>
+</div>
+<?php else:
+    $GT = ['monthly_rate'=>0,'pera'=>0,'gross'=>0,'wtax'=>0,'philhealth'=>0,
+           'gsis'=>0,'pagibig'=>0,'philhealth_cons'=>0,'provident'=>0,
+           'bacgem'=>0,'nocgem_bcgeu'=>0,'total_ded'=>0,'net_1_15'=>0,'net_16_31'=>0];
+
+    $sheetChunks = array_chunk($rows, $rowsPerSheet);
+    foreach ($sheetChunks as $si => $chunk):
+        $sn  = $si + 1;
+        $lbl = str_pad($sn,3,'0',STR_PAD_LEFT).' of '.str_pad($totalSheets,3,'0',STR_PAD_LEFT);
+        $ST  = ['monthly_rate'=>0,'pera'=>0,'gross'=>0,'wtax'=>0,'philhealth'=>0,
+                'gsis'=>0,'pagibig'=>0,'philhealth_cons'=>0,'provident'=>0,
+                'bacgem'=>0,'nocgem_bcgeu'=>0,'total_ded'=>0,'net_1_15'=>0,'net_16_31'=>0];
+?>
+<div class="sheet">
+
+  <div class="sys-line">
+    <span>MTCS control: vpayroll.rdf, July 3, 2003</span>
+    <span>Sheet No. : <?php echo $lbl; ?></span>
+  </div>
+
+  <div class="header-block">
+    <div class="oracle-left">
+      <div class="oracle-box">ORACLE</div>
+      <div class="oracle-meta">
+        RevDate: 12/19/2018<br>
+        Rev 3.2<br>
+        Printdate: <?php echo $printDate; ?>
+      </div>
     </div>
 
-    <div class="print-container">
-        <!-- Header -->
-        <div class="payroll-header">
-            <div class="header-top">
-                <img src="assets/bcd.png" alt="BCD Logo" class="logo">
-                <div class="header-text">
-                    <div class="republic">Republic of the Philippines</div>
-                    <div class="city-name">City of Bacolod</div>
-                    <div class="office-name"><?php echo htmlspecialchars($dept['department_name']); ?></div>
-                </div>
-                <img src="assets/bcd.png" alt="BCD Logo" class="logo">
-            </div>
-            
-            <div class="payroll-title">GENERAL PAYROLL</div>
-            
-            <div class="payroll-info">
-                <div class="payroll-info-item">
-                    <span class="payroll-info-label">Period:</span>
-                    <span><?php echo $month . ' ' . $period . ', ' . $year; ?></span>
-                </div>
-                <div class="payroll-info-item">
-                    <span class="payroll-info-label">Department:</span>
-                    <span><?php echo htmlspecialchars($dept['department_code']); ?></span>
-                </div>
-                <div class="payroll-info-item">
-                    <span class="payroll-info-label">Fund:</span>
-                    <span>General Fund</span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Main Table -->
-        <table class="payroll-table">
-            <thead>
-                <tr>
-                    <th rowspan="2" class="col-no">No.</th>
-                    <th rowspan="2" class="col-name">Name of Employee</th>
-                    <th rowspan="2" class="col-position">Position/Designation</th>
-                    <th rowspan="2" class="col-sg">SG</th>
-                    <th rowspan="2" class="col-step">Step</th>
-                    <th colspan="3">EARNINGS</th>
-                    <th colspan="6">DEDUCTIONS</th>
-                    <th rowspan="2" class="col-money">Net Amount</th>
-                    <th rowspan="2" class="col-signature">Signature</th>
-                </tr>
-                <tr>
-                    <th class="col-money">Basic Salary</th>
-                    <th class="col-money">PERA</th>
-                    <th class="col-money">Gross</th>
-                    <th class="col-deduction">W-Tax</th>
-                    <th class="col-deduction">GSIS</th>
-                    <th class="col-deduction">PhilHealth</th>
-                    <th class="col-deduction">Pag-IBIG</th>
-                    <th class="col-deduction">Others</th>
-                    <th class="col-money">Total Ded.</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php 
-                $rowNum = 1;
-                if ($payrollRecords && $payrollRecords->num_rows > 0):
-                    while($row = $payrollRecords->fetch_assoc()): 
-                        $empName = strtoupper($row['last_name'] . ', ' . $row['first_name']);
-                        if ($row['middle_name']) {
-                            $empName .= ' ' . strtoupper(substr($row['middle_name'], 0, 1)) . '.';
-                        }
-                        
-                        // Get step from date_hired
-                        $step = 1;
-                        if ($row['date_hired']) {
-                            $hireDate = new DateTime($row['date_hired']);
-                            $today = new DateTime();
-                            $years = $hireDate->diff($today)->y;
-                            $step = min(8, floor($years / 3) + 1);
-                        }
-                        
-                        // Use salary rate from salary table if available
-                        $basicSalary = $row['salary_rate'] ? $row['salary_rate'] : $row['basic_salary'];
-                        $grossPay = $basicSalary + $row['pera'];
-                        
-                        // Other deductions combined
-                        $otherDed = $row['provident'] + $row['bcgeu'] + $row['nocgem'] + $row['bacgem'] + $row['other_deductions'];
-                        
-                        // Update totals
-                        $totals['basic_salary'] += $basicSalary;
-                        $totals['pera'] += $row['pera'];
-                        $totals['gross_pay'] += $grossPay;
-                        $totals['wtax'] += $row['wtax'];
-                        $totals['gsis'] += $row['gsis'];
-                        $totals['philhealth'] += $row['philhealth'];
-                        $totals['pagibig'] += $row['pagibig'];
-                        $totals['total_deductions'] += $row['total_deductions'];
-                        $totals['net_pay'] += $row['net_pay'];
-                ?>
-                    <tr>
-                        <td><?php echo $rowNum++; ?></td>
-                        <td class="name"><?php echo htmlspecialchars($empName); ?></td>
-                        <td class="position"><?php echo htmlspecialchars($row['position_title'] ?? 'N/A'); ?></td>
-                        <td><?php echo $row['salary_grade'] ?? '-'; ?></td>
-                        <td><?php echo $step; ?></td>
-                        <td class="currency"><?php echo number_format($basicSalary, 2); ?></td>
-                        <td class="currency"><?php echo number_format($row['pera'], 2); ?></td>
-                        <td class="currency"><?php echo number_format($grossPay, 2); ?></td>
-                        <td class="currency"><?php echo number_format($row['wtax'], 2); ?></td>
-                        <td class="currency"><?php echo number_format($row['gsis'], 2); ?></td>
-                        <td class="currency"><?php echo number_format($row['philhealth'], 2); ?></td>
-                        <td class="currency"><?php echo number_format($row['pagibig'], 2); ?></td>
-                        <td class="currency"><?php echo number_format($otherDed, 2); ?></td>
-                        <td class="currency"><?php echo number_format($row['total_deductions'], 2); ?></td>
-                        <td class="currency" style="font-weight: bold;"><?php echo number_format($row['net_pay'], 2); ?></td>
-                        <td></td>
-                    </tr>
-                <?php 
-                    endwhile;
-                endif;
-                ?>
-                
-                <!-- Total Row -->
-                <tr class="total-row">
-                    <td colspan="5" style="text-align: right; font-weight: bold;">TOTAL:</td>
-                    <td class="currency"><?php echo number_format($totals['basic_salary'], 2); ?></td>
-                    <td class="currency"><?php echo number_format($totals['pera'], 2); ?></td>
-                    <td class="currency"><?php echo number_format($totals['gross_pay'], 2); ?></td>
-                    <td class="currency"><?php echo number_format($totals['wtax'], 2); ?></td>
-                    <td class="currency"><?php echo number_format($totals['gsis'], 2); ?></td>
-                    <td class="currency"><?php echo number_format($totals['philhealth'], 2); ?></td>
-                    <td class="currency"><?php echo number_format($totals['pagibig'], 2); ?></td>
-                    <td class="currency">-</td>
-                    <td class="currency"><?php echo number_format($totals['total_deductions'], 2); ?></td>
-                    <td class="currency" style="font-size: 10pt;"><?php echo number_format($totals['net_pay'], 2); ?></td>
-                    <td></td>
-                </tr>
-            </tbody>
-        </table>
-        
-        <!-- Footer -->
-        <div class="payroll-footer">
-            <div class="certification">
-                We acknowledge receipt of the sum shown opposite our names as full compensation for services rendered for the period stated.
-            </div>
-            
-            <div class="signatures">
-                <div class="signature-box">
-                    <div class="signature-line">
-                        _______________________
-                    </div>
-                    <div class="signature-title">Prepared by</div>
-                </div>
-                <div class="signature-box">
-                    <div class="signature-line">
-                        _______________________
-                    </div>
-                    <div class="signature-title">Checked by</div>
-                </div>
-                <div class="signature-box">
-                    <div class="signature-line">
-                        _______________________
-                    </div>
-                    <div class="signature-title">Approved by</div>
-                </div>
-                <div class="signature-box">
-                    <div class="signature-line">
-                        _______________________
-                    </div>
-                    <div class="signature-title">City Accountant</div>
-                </div>
-            </div>
-            
-            <p style="text-align: center; margin-top: 30px; font-size: 8pt; color: #666;">
-                Printed on: <?php echo date('F d, Y h:i A'); ?>
-            </p>
-        </div>
+    <div class="header-center">
+      <div class="main-title">GENERAL &nbsp; PAYROLL</div>
+      <div class="sub-title">Management Information Technology and Computer Services</div>
+      <div class="dept-line"><?php echo htmlspecialchars($dept['department_name']); ?></div>
+      <div class="period-for">FOR THE MONTH OF <?php echo $periodLabel; ?></div>
     </div>
+
+    <div class="header-right">Period</div>
+  </div>
+
+  <div class="ack">We acknowledge receipt of the sum shown opposite our names as full compensation for services rendered for the period stated.</div>
+
+  <table class="pv">
+    <thead>
+      <tr>
+        <th rowspan="2" style="width:24px">NO.</th>
+        <th rowspan="2" style="width:125px">EMPLOYEE NAME</th>
+        <th rowspan="2" style="width:62px">POSITION</th>
+        <th rowspan="2" style="width:58px">MONTHLY<br>RATE</th>
+        <th rowspan="2" style="width:50px">PERA</th>
+        <th rowspan="2" style="width:60px">GROSS<br>PAY</th>
+        <th rowspan="2" style="width:46px">WTAX</th>
+        <th rowspan="2" style="width:52px">PREMILBASE<br>PHILHEALTH</th>
+        <th rowspan="2" style="width:56px">GSIS<br>CONSOLIDATED</th>
+        <th colspan="5" style="background:#e8e8f5">CONSOLIDATED</th>
+        <th rowspan="2" style="width:58px">TOTAL<br>DEDUCTIONS<br>CONSOLIDATED</th>
+        <th rowspan="2" style="width:54px">NET PAY<br>1-15</th>
+        <th rowspan="2" style="width:54px">NET PAY<br>16-31</th>
+      </tr>
+      <tr>
+        <th style="width:52px;background:#e8e8f5">PAGIBIG<br>CONSOLIDATED</th>
+        <th style="width:56px;background:#e8e8f5">PHILHEALTH<br>CONSOLIDATED</th>
+        <th style="width:52px;background:#e8e8f5">PROVIDENT<br>CONSOLIDATED</th>
+        <th style="width:52px;background:#e8e8f5">BACGEM<br>CONSOLIDATED</th>
+        <th style="width:56px;background:#e8e8f5">NOCGEM/<br>BCGEU<br>CONSOLIDATED</th>
+      </tr>
+    </thead>
+    <tbody>
+<?php
+        $rowNo = ($si * $rowsPerSheet) + 1;
+        foreach ($chunk as $row):
+            $name = strtoupper($row['last_name'].', '.$row['first_name']);
+            if ($row['middle_name']) $name .= ' '.strtoupper(substr($row['middle_name'],0,1)).'.';
+
+            $monthlyRate  = $row['salary_rate'] ? (float)$row['salary_rate'] : (float)$row['basic_salary'];
+            $pera         = (float)$row['pera'];
+            $gross        = (float)$row['gross_pay'];
+            $wtax         = (float)$row['wtax'];
+            $philBase     = (float)$row['philhealth'];
+            $gsis         = (float)$row['gsis'];
+            $pagibig      = (float)$row['pagibig'];
+            $philCons     = (float)$row['philhealth'];
+            $provident    = (float)$row['provident'];
+            $bacgem       = (float)$row['bacgem'];
+            $nocgemBcgeu  = (float)($row['nocgem'] + $row['bcgeu']);
+            $totalDed     = (float)$row['total_deductions'];
+            $net1         = (float)$row['net_1_15'];
+            $net2         = (float)$row['net_16_31'];
+
+            $ST['monthly_rate']    += $monthlyRate;
+            $ST['pera']            += $pera;
+            $ST['gross']           += $gross;
+            $ST['wtax']            += $wtax;
+            $ST['philhealth']      += $philBase;
+            $ST['gsis']            += $gsis;
+            $ST['pagibig']         += $pagibig;
+            $ST['philhealth_cons'] += $philCons;
+            $ST['provident']       += $provident;
+            $ST['bacgem']          += $bacgem;
+            $ST['nocgem_bcgeu']    += $nocgemBcgeu;
+            $ST['total_ded']       += $totalDed;
+            $ST['net_1_15']        += $net1;
+            $ST['net_16_31']       += $net2;
+
+            $GT['monthly_rate']    += $monthlyRate;
+            $GT['pera']            += $pera;
+            $GT['gross']           += $gross;
+            $GT['wtax']            += $wtax;
+            $GT['philhealth']      += $philBase;
+            $GT['gsis']            += $gsis;
+            $GT['pagibig']         += $pagibig;
+            $GT['philhealth_cons'] += $philCons;
+            $GT['provident']       += $provident;
+            $GT['bacgem']          += $bacgem;
+            $GT['nocgem_bcgeu']    += $nocgemBcgeu;
+            $GT['total_ded']       += $totalDed;
+            $GT['net_1_15']        += $net1;
+            $GT['net_16_31']       += $net2;
+?>
+      <tr>
+        <td><?php echo $rowNo++; ?></td>
+        <td class="name-col"><?php echo htmlspecialchars($name); ?></td>
+        <td class="pos-col"><?php echo htmlspecialchars($row['position_title'] ?? ''); ?></td>
+        <td class="R"><?php echo fmt($monthlyRate); ?></td>
+        <td class="R"><?php echo fmt($pera); ?></td>
+        <td class="R"><?php echo fmt($gross); ?></td>
+        <td class="R"><?php echo fmt($wtax); ?></td>
+        <td class="R"><?php echo fmt($philBase); ?></td>
+        <td class="R"><?php echo fmt($gsis); ?></td>
+        <td class="R"><?php echo fmt($pagibig); ?></td>
+        <td class="R"><?php echo fmt($philCons); ?></td>
+        <td class="R"><?php echo fmt($provident); ?></td>
+        <td class="R"><?php echo fmt($bacgem); ?></td>
+        <td class="R"><?php echo fmt($nocgemBcgeu); ?></td>
+        <td class="R"><strong><?php echo fmt($totalDed); ?></strong></td>
+        <td class="R"><strong><?php echo fmt($net1); ?></strong></td>
+        <td class="R"><strong><?php echo fmt($net2); ?></strong></td>
+      </tr>
+<?php endforeach; ?>
+
+      <tr class="tot-row">
+        <td colspan="3" class="R">TOTALS</td>
+        <td class="R"><?php echo fmt($ST['monthly_rate']); ?></td>
+        <td class="R"><?php echo fmt($ST['pera']); ?></td>
+        <td class="R"><?php echo fmt($ST['gross']); ?></td>
+        <td class="R"><?php echo fmt($ST['wtax']); ?></td>
+        <td class="R"><?php echo fmt($ST['philhealth']); ?></td>
+        <td class="R"><?php echo fmt($ST['gsis']); ?></td>
+        <td class="R"><?php echo fmt($ST['pagibig']); ?></td>
+        <td class="R"><?php echo fmt($ST['philhealth_cons']); ?></td>
+        <td class="R"><?php echo fmt($ST['provident']); ?></td>
+        <td class="R"><?php echo fmt($ST['bacgem']); ?></td>
+        <td class="R"><?php echo fmt($ST['nocgem_bcgeu']); ?></td>
+        <td class="R"><?php echo fmt($ST['total_ded']); ?></td>
+        <td class="R"><?php echo fmt($ST['net_1_15']); ?></td>
+        <td class="R"><?php echo fmt($ST['net_16_31']); ?></td>
+      </tr>
+
+      <?php if ($sn === $totalSheets && $totalSheets > 1): ?>
+      <tr class="grand-row">
+        <td colspan="3" class="R">GRAND TOTALS</td>
+        <td class="R"><?php echo fmt($GT['monthly_rate']); ?></td>
+        <td class="R"><?php echo fmt($GT['pera']); ?></td>
+        <td class="R"><?php echo fmt($GT['gross']); ?></td>
+        <td class="R"><?php echo fmt($GT['wtax']); ?></td>
+        <td class="R"><?php echo fmt($GT['philhealth']); ?></td>
+        <td class="R"><?php echo fmt($GT['gsis']); ?></td>
+        <td class="R"><?php echo fmt($GT['pagibig']); ?></td>
+        <td class="R"><?php echo fmt($GT['philhealth_cons']); ?></td>
+        <td class="R"><?php echo fmt($GT['provident']); ?></td>
+        <td class="R"><?php echo fmt($GT['bacgem']); ?></td>
+        <td class="R"><?php echo fmt($GT['nocgem_bcgeu']); ?></td>
+        <td class="R"><?php echo fmt($GT['total_ded']); ?></td>
+        <td class="R"><?php echo fmt($GT['net_1_15']); ?></td>
+        <td class="R"><?php echo fmt($GT['net_16_31']); ?></td>
+      </tr>
+      <?php endif; ?>
+
+    </tbody>
+  </table>
+
+  <div class="sheet-footer">
+    <span>Printed: <?php echo date('m/d/Y h:i A'); ?></span>
+    <span><?php echo htmlspecialchars($dept['department_name']); ?> &mdash; <?php echo $periodLabel; ?></span>
+    <span>Sheet No.: <?php echo $lbl; ?></span>
+  </div>
+
+</div>
+<?php
+    endforeach;
+endif;
+?>
 </body>
 </html>

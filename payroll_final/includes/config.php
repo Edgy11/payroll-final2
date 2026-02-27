@@ -112,6 +112,63 @@ $sql = "CREATE TABLE IF NOT EXISTS salary (
 )";
 $conn->query($sql);
 
+// Create users table — with TEXT role so it works with old AND new databases
+$sql = "CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(100),
+    role VARCHAR(20) DEFAULT 'superadmin',
+    status ENUM('active', 'inactive') DEFAULT 'active',
+    last_login DATETIME,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)";
+$conn->query($sql);
+
+// If role column exists but still uses old ENUM, alter it to VARCHAR so we can update values
+$conn->query("ALTER TABLE users MODIFY COLUMN role VARCHAR(20) DEFAULT 'superadmin'");
+
+// Migrate any existing 'admin' role values to 'superadmin'
+$conn->query("UPDATE users SET role = 'superadmin' WHERE role = 'admin' OR role = '' OR role IS NULL");
+
+// Create user_sessions table
+$sql = "CREATE TABLE IF NOT EXISTS user_sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    session_token VARCHAR(128) NOT NULL UNIQUE,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    is_active TINYINT(1) DEFAULT 1,
+    expires_at DATETIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)";
+$conn->query($sql);
+
+// Ensure admin (superadmin) user exists
+$chk = $conn->query("SELECT id FROM users WHERE username = 'admin' LIMIT 1");
+if ($chk && $chk->num_rows === 0) {
+    $admin1Pass = password_hash('admin123', PASSWORD_DEFAULT);
+    $u1 = 'admin'; $n1 = 'System Administrator'; $e1 = 'admin@payroll.gov'; $r1 = 'superadmin'; $s1 = 'active';
+    $stmt = $conn->prepare("INSERT INTO users (username, password, full_name, email, role, status) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssss", $u1, $admin1Pass, $n1, $e1, $r1, $s1);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// Ensure admin2 (payroll officer) user exists
+$chk2 = $conn->query("SELECT id FROM users WHERE username = 'admin2' LIMIT 1");
+if ($chk2 && $chk2->num_rows === 0) {
+    $admin2Pass = password_hash('admin2023', PASSWORD_DEFAULT);
+    $u2 = 'admin2'; $n2 = 'Payroll Officer'; $e2 = 'payroll@payroll.gov'; $r2 = 'admin2'; $s1 = 'active';
+    $stmt = $conn->prepare("INSERT INTO users (username, password, full_name, email, role, status) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssss", $u2, $admin2Pass, $n2, $e2, $r2, $s1);
+    $stmt->execute();
+    $stmt->close();
+}
+
 
 // Insert default departments if empty
 $result = $conn->query("SELECT COUNT(*) as count FROM departments");
