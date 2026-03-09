@@ -1,0 +1,45 @@
+/* Styles for payroll_edit.php */
+
+.auto-deduction-info {
+    background:#ede9fe; border:2px solid #c4b5fd; border-radius:10px;
+    padding:12px 18px; display:flex; align-items:center; gap:10px;
+    font-size:0.875rem; font-weight:600; color:#5b21b6; margin-bottom:1rem;
+}
+.coop-block {
+    border:2px solid #e5e7eb; border-radius:12px; overflow:hidden;
+    transition:border-color 0.2s; margin-bottom:1rem;
+}
+.coop-block:last-child { margin-bottom:0; }
+.coop-block:focus-within { border-color:#2d6394; }
+.coop-block-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px; background:#f8fafc; cursor:pointer;
+    user-select:none; transition:background 0.15s;
+}
+.coop-block-header:hover { background:#eef4fb; }
+.coop-block-title { display:flex; align-items:center; gap:12px; }
+.coop-tag { display:inline-block; padding:4px 12px; border-radius:6px; font-size:0.8rem; font-weight:800; letter-spacing:0.05em; }
+.bacgem-tag { background:#dbeafe; color:#1e40af; }
+.nocgem-tag { background:#d1fae5; color:#065f46; }
+.coop-label { font-size:0.9rem; color:#374151; font-weight:600; }
+.coop-block-right { display:flex; align-items:center; gap:14px; }
+.coop-total { font-size:0.875rem; font-weight:700; color:#374151; background:#e5e7eb; padding:4px 12px; border-radius:20px; }
+.coop-chevron { color:#6b7280; transition:transform 0.25s; font-size:0.85rem; }
+.coop-chevron.open { transform:rotate(180deg); }
+.coop-block-body { display:none; padding:18px; background:#fff; border-top:1px solid #e5e7eb; animation:slideDown 0.2s ease; }
+.coop-block-body.open { display:block; }
+@keyframes slideDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+.coop-subfields { display:grid; gap:1rem; }
+.coop-subfield-item label { display:block; font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:5px; }
+.coop-subfield-item input { width:100%; padding:9px 10px; border:2px solid #e5e7eb; border-radius:8px; text-align:right; font-size:0.9rem; transition:border-color 0.15s; box-sizing:border-box; }
+.coop-subfield-item input:focus { outline:none; border-color:#2d6394; }
+.auto-box-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:0.75rem; }
+.auto-box-grid-wtax { display:grid; grid-template-columns:1fr; gap:1rem; margin-bottom:1.5rem; }
+.auto-box { background:#f8fafc; border:2px solid #e5e7eb; border-radius:10px; padding:12px 14px; text-align:center; }
+.auto-box-label { font-size:0.72rem; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px; }
+.auto-box-value { font-size:1.1rem; font-weight:800; color:#374151; }
+.auto-box-note  { font-size:0.68rem; color:#9ca3af; margin-top:2px; }
+.auto-box-wtax { background:#fff7ed; border:2px solid #fed7aa; border-radius:10px; padding:12px 18px; display:flex; align-items:center; justify-content:space-between; }
+.auto-box-wtax .auto-box-label { margin-bottom:0; color:#c2410c; }
+.auto-box-wtax .auto-box-value { font-size:1.1rem; font-weight:800; color:#9a3412; }
+.auto-box-wtax .auto-box-note  { font-size:0.68rem; color:#fb923c; }

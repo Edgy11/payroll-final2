@@ -1,0 +1,27 @@
+/* Styles for departments.php */
+
+.action-btn-group {
+    display: flex;
+    gap: 3px;
+    flex-wrap: nowrap;
+}
+.action-btn {
+    display: inline-block;
+    padding: 3px 7px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.4;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    transition: opacity 0.15s, transform 0.1s;
+}
+.action-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.action-btn:active { transform: translateY(0); }
+.action-btn-info      { background: #0ea5e9; color: #fff; }
+.action-btn-secondary { background: #6b7280; color: #fff; }
+.action-btn-danger    { background: #ef4444; color: #fff; }

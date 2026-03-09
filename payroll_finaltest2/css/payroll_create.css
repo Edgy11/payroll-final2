@@ -1,0 +1,294 @@
+/* Styles for payroll_create.php */
+
+/* ── Department selection ── */
+.dept-select-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
+.dept-card { background: #fff; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,.08); cursor: pointer; transition: all .2s; border: 2px solid transparent; text-align: center; }
+.dept-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(45,99,148,.15); border-color: #2d6394; }
+.dept-card-icon { width: 56px; height: 56px; margin: 0 auto .875rem; border-radius: 50%; background: linear-gradient(135deg,#e3f0fa,#b5d5f0); color: #2d6394; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+.dept-card h3 { font-size: 1rem; font-weight: 700; color: #111827; margin-bottom: 3px; }
+.dept-card p  { font-size: .8rem; color: #6b7280; }
+
+/* ── Navigation ── */
+.back-link { display: inline-flex; align-items: center; gap: .5rem; color: #6b7280; font-size: .875rem; font-weight: 600; margin-bottom: 1.25rem; text-decoration: none; transition: color .15s; }
+.back-link:hover { color: #2d6394; }
+
+/* ── Page header banner ── */
+.batch-header { background: linear-gradient(135deg, #1a3a5c, #0f2135); color: #fff; padding: 1.25rem 1.5rem; border-radius: 14px; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; }
+.batch-header h2 { font-size: 1.25rem; font-weight: 800; margin: 0 0 2px; }
+.batch-header p  { color: #7eb3e0; font-size: .85rem; margin: 0; }
+
+/* ── Period selector card ── */
+.period-selector { background: #fff; border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.period-selector h3 { font-size: .95rem; font-weight: 700; margin: 0 0 1rem; color: #111827; display: flex; align-items: center; gap: .5rem; }
+.period-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
+
+/* ── Employee table ── */
+.employee-batch-table { width: 100%; border-collapse: collapse; }
+.employee-batch-table th {
+    background: #f8fafc;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: .78rem;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    border-bottom: 2px solid #e5e7eb;
+}
+.employee-batch-table td { padding: 11px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.emp-main-row:hover > td { background: #f8fbff; }
+.emp-main-row.has-warning > td { background: #fffbeb !important; }
+
+.salary-input { width: 118px; padding: 7px 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: .875rem; font-weight: 600; text-align: right; color: #111827; transition: border-color .15s; }
+.salary-input:focus { outline: none; border-color: #2d6394; box-shadow: 0 0 0 3px rgba(45,99,148,.1); }
+.salary-input.over-limit { border-color: #ef4444 !important; background: #fef2f2; }
+
+.pera-limit-badge { display: inline-block; font-size: .68rem; font-weight: 700; padding: 1px 7px; border-radius: 20px; background: #fef3c7; color: #92400e; margin-left: 5px; vertical-align: middle; }
+.step-badge  { display: inline-block; padding: 3px 9px; background: #fefce8; color: #854d0e; border: 1px solid #fde68a; border-radius: 20px; font-size: .72rem; font-weight: 700; }
+.grade-badge { display: inline-block; padding: 3px 9px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 20px; font-size: .72rem; font-weight: 700; }
+
+/* ── Clickable employee name ── */
+.emp-name-btn { background: none; border: none; padding: 0; cursor: pointer; text-align: left; display: inline-flex; align-items: center; gap: 8px; }
+.employee-name { font-weight: 700; font-size: .9rem; color: #1d4ed8; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #bfdbfe; transition: color .15s, text-decoration-color .15s; }
+.emp-name-btn:hover .employee-name { color: #1e40af; text-decoration-color: #1e40af; }
+.emp-id-text { font-family: monospace; color: #9ca3af; font-size: .75rem; display: block; margin-top: 1px; }
+.emp-name-chevron { font-size: .65rem; color: #9ca3af; transition: transform .25s, color .15s; }
+.emp-name-chevron.open { transform: rotate(180deg); color: #1d4ed8; }
+
+/* ── Loan total badge ── */
+.emp-loan-total-badge { display: inline-flex; align-items: center; gap: 4px; font-size: .7rem; font-weight: 700; padding: 2px 8px; background: #f1f5f9; color: #64748b; border-radius: 20px; margin-left: 6px; vertical-align: middle; border: 1px solid #e2e8f0; transition: all .2s; }
+.emp-loan-total-badge.has-value { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+.emp-loan-total-badge.over-salary { background: #fef2f2 !important; color: #b91c1c !important; border-color: #fecaca !important; animation: pulse-warn .8s ease-in-out infinite alternate; }
+
+/* ── Per-row salary warning banner ── */
+.emp-salary-warning {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: #fff7ed;
+    border: 1.5px solid #fed7aa;
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-top: 5px;
+    font-size: .75rem;
+    font-weight: 600;
+    color: #c2410c;
+    white-space: nowrap;
+}
+.emp-salary-warning.visible { display: flex; }
+.emp-salary-warning i { color: #ea580c; flex-shrink: 0; }
+
+/* ── Global warning banner (above submit) ── */
+#globalLoanWarning {
+    display: none;
+    background: #fef2f2;
+    border: 2px solid #fca5a5;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.25rem;
+    color: #991b1b;
+}
+#globalLoanWarning.visible { display: flex; align-items: flex-start; gap: 12px; }
+#globalLoanWarning i { font-size: 1.4rem; color: #ef4444; flex-shrink: 0; margin-top: 2px; }
+#globalLoanWarning h4 { font-size: .9rem; font-weight: 800; margin: 0 0 4px; }
+#globalLoanWarning ul { margin: 4px 0 0; padding-left: 1.2rem; font-size: .8rem; }
+#globalLoanWarning li { margin-bottom: 2px; }
+
+/* ── Per-employee loan panel ── */
+.emp-loan-panel { padding: 16px 20px 20px; background: #f8fbff; border-top: 1px solid #dbeafe; }
+.emp-loan-panel-title { font-size: .72rem; font-weight: 800; color: #3b82f6; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.emp-loan-panel-title i { background: #dbeafe; color: #1d4ed8; padding: 5px; border-radius: 6px; }
+.emp-loan-panel-title::after { content: ''; flex: 1; height: 1px; background: #dbeafe; }
+
+/* ── Per-employee coop grid ── */
+.emp-coop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+.emp-coop-block { background: #fff; border-radius: 10px; overflow: hidden; transition: box-shadow .15s; border: 2px solid transparent; }
+
+.emp-coop-header { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; cursor: pointer; user-select: none; transition: filter .15s; }
+.emp-coop-header:hover { filter: brightness(.96); }
+
+.emp-coop-title { display: flex; align-items: center; gap: 8px; }
+.emp-coop-tag { display: inline-block; padding: 3px 8px; border-radius: 5px; font-size: .65rem; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
+.emp-coop-label { font-size: .78rem; font-weight: 700; }
+
+.emp-coop-right { display: flex; align-items: center; gap: 8px; }
+.emp-coop-total { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 20px; white-space: nowrap; background: rgba(0,0,0,.08); }
+.emp-coop-chevron { font-size: .65rem; transition: transform .2s; }
+.emp-coop-chevron.open { transform: rotate(180deg); }
+
+.emp-coop-body { display: none; padding: 12px; border-top: 1px solid rgba(0,0,0,.07); animation: slideDown .18s ease; }
+.emp-coop-body.open { display: block; }
+
+/* ── Per-type color themes ── */
+/* GSIS — green */
+.emp-coop-block.ct-gsis     { border-color: #86efac; }
+.emp-coop-block.ct-gsis     .emp-coop-header { background: linear-gradient(135deg,#dcfce7,#bbf7d0); }
+.emp-coop-block.ct-gsis     .emp-coop-label  { color: #14532d; }
+.emp-coop-block.ct-gsis     .emp-coop-chevron { color: #16a34a; }
+.emp-coop-block.ct-gsis     .emp-coop-body   { background: #f0fdf4; }
+.emp-coop-block.ct-gsis:focus-within { box-shadow: 0 0 0 3px rgba(22,163,74,.15); }
+
+/* PAG-IBIG — pink/rose */
+.emp-coop-block.ct-pagibig  { border-color: #f9a8d4; }
+.emp-coop-block.ct-pagibig  .emp-coop-header { background: linear-gradient(135deg,#fce7f3,#fbcfe8); }
+.emp-coop-block.ct-pagibig  .emp-coop-label  { color: #9d174d; }
+.emp-coop-block.ct-pagibig  .emp-coop-chevron { color: #db2777; }
+.emp-coop-block.ct-pagibig  .emp-coop-body   { background: #fff1f8; }
+.emp-coop-block.ct-pagibig:focus-within { box-shadow: 0 0 0 3px rgba(219,39,119,.15); }
+
+/* PROVIDENT — purple/violet */
+.emp-coop-block.ct-provident { border-color: #c4b5fd; }
+.emp-coop-block.ct-provident .emp-coop-header { background: linear-gradient(135deg,#ede9fe,#ddd6fe); }
+.emp-coop-block.ct-provident .emp-coop-label  { color: #5b21b6; }
+.emp-coop-block.ct-provident .emp-coop-chevron { color: #7c3aed; }
+.emp-coop-block.ct-provident .emp-coop-body   { background: #f8f5ff; }
+.emp-coop-block.ct-provident:focus-within { box-shadow: 0 0 0 3px rgba(124,58,237,.15); }
+
+/* BACGEM — blue */
+.emp-coop-block.ct-bacgem   { border-color: #93c5fd; }
+.emp-coop-block.ct-bacgem   .emp-coop-header { background: linear-gradient(135deg,#dbeafe,#bfdbfe); }
+.emp-coop-block.ct-bacgem   .emp-coop-label  { color: #1e40af; }
+.emp-coop-block.ct-bacgem   .emp-coop-chevron { color: #2563eb; }
+.emp-coop-block.ct-bacgem   .emp-coop-body   { background: #eff6ff; }
+.emp-coop-block.ct-bacgem:focus-within { box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+
+/* NOCGEM — teal/emerald */
+.emp-coop-block.ct-nocgem   { border-color: #6ee7b7; }
+.emp-coop-block.ct-nocgem   .emp-coop-header { background: linear-gradient(135deg,#d1fae5,#a7f3d0); }
+.emp-coop-block.ct-nocgem   .emp-coop-label  { color: #065f46; }
+.emp-coop-block.ct-nocgem   .emp-coop-chevron { color: #059669; }
+.emp-coop-block.ct-nocgem   .emp-coop-body   { background: #ecfdf5; }
+.emp-coop-block.ct-nocgem:focus-within { box-shadow: 0 0 0 3px rgba(5,150,105,.15); }
+
+/* OTHER — amber/orange */
+.emp-coop-block.ct-other    { border-color: #fca5a5; }
+.emp-coop-block.ct-other    .emp-coop-header { background: linear-gradient(135deg,#fee2e2,#fecaca); }
+.emp-coop-block.ct-other    .emp-coop-label  { color: #991b1b; }
+.emp-coop-block.ct-other    .emp-coop-chevron { color: #dc2626; }
+.emp-coop-block.ct-other    .emp-coop-body   { background: #fff5f5; }
+.emp-coop-block.ct-other:focus-within { box-shadow: 0 0 0 3px rgba(220,38,38,.15); }
+
+.emp-coop-subfields { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+.emp-coop-subfield-item label { display: block; font-size: .68rem; font-weight: 600; color: #6b7280; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .03em; }
+.emp-coop-subfield-item input { width: 100%; padding: 6px 8px; border: 1.5px solid #e5e7eb; border-radius: 6px; text-align: right; font-size: .82rem; font-weight: 600; color: #111827; transition: border-color .15s; }
+.emp-coop-subfield-item input:focus { outline: none; border-color: #3b82f6; background: #eff6ff; }
+
+/* ── Submit bar ── */
+.batch-summary { background: linear-gradient(135deg, #059669, #047857); color: #fff; border-radius: 14px; padding: 1.125rem 1.5rem; margin-top: 1.25rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(5,150,105,.25); }
+.batch-summary.has-warnings { background: linear-gradient(135deg, #d97706, #b45309); box-shadow: 0 4px 12px rgba(217,119,6,.3); }
+.batch-summary-info h3 { font-size: 1rem; font-weight: 700; margin: 0 0 2px; }
+.batch-summary-info p  { font-size: .85rem; opacity: .85; margin: 0; }
+.btn-create-batch { background: #fff; color: #047857; padding: 10px 24px; border-radius: 10px; font-weight: 700; font-size: .95rem; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: all .2s; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.batch-summary.has-warnings .btn-create-batch { color: #92400e; }
+.btn-create-batch:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,.15); }
+
+
+/* ── Department Loan Totals Panel ── */
+.dept-loan-totals {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.08);
+    border: 1px solid #e5e7eb;
+    margin-top: 1.25rem;
+    overflow: hidden;
+}
+.dept-loan-totals-header {
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #0f2640, #1a3d6b);
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
+}
+.dept-loan-totals-header h3 {
+    margin: 0; color: #fff; font-size: .95rem; font-weight: 800;
+    display: flex; align-items: center; gap: 8px;
+}
+.dept-loan-totals-header h3 small { font-weight: 400; color: #7eb3e0; font-size: .78rem; }
+.dept-totals-toggle-arrow {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(255,255,255,.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .75rem; color: #fff; transition: transform .25s;
+}
+.dept-totals-toggle-arrow.open { transform: rotate(180deg); }
+.dept-loan-totals-body { padding: 1.25rem 1.5rem; }
+
+.dept-totals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: .875rem;
+    margin-bottom: 1rem;
+}
+.dept-total-card {
+    border-radius: 10px;
+    padding: .875rem 1rem;
+    border: 1.5px solid transparent;
+    transition: box-shadow .15s;
+}
+.dept-total-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.dept-total-card-label {
+    font-size: .65rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .08em; margin-bottom: 5px;
+}
+.dept-total-card-value {
+    font-size: 1.05rem; font-weight: 800;
+}
+.dept-total-card-sub {
+    font-size: .68rem; margin-top: 3px; opacity: .65;
+}
+
+/* Grand total row */
+.dept-grand-total-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(135deg, #1a3d6b, #2d6394);
+    color: #fff; border-radius: 10px;
+    padding: .875rem 1.25rem;
+    margin-top: .25rem;
+}
+.dept-grand-total-row .label { font-size: .8rem; font-weight: 700; opacity: .85; }
+.dept-grand-total-row .value { font-size: 1.2rem; font-weight: 800; }
+.dept-grand-total-row .emp-count { font-size: .75rem; opacity: .7; margin-left: .5rem; }
+
+/* Employee breakdown mini-table inside panel */
+.dept-emp-breakdown {
+    margin-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 1rem;
+}
+.dept-emp-breakdown-title {
+    font-size: .7rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .07em; color: #9ca3af; margin-bottom: .75rem;
+}
+.dept-emp-table {
+    width: 100%; border-collapse: collapse; font-size: .8rem;
+}
+.dept-emp-table th {
+    padding: 7px 10px; text-align: right; font-size: .68rem;
+    font-weight: 700; color: #6b7280; border-bottom: 2px solid #e5e7eb;
+    white-space: nowrap; text-transform: uppercase; letter-spacing: .04em;
+}
+.dept-emp-table th:first-child { text-align: left; }
+.dept-emp-table td {
+    padding: 8px 10px; border-bottom: 1px solid #f3f4f6;
+    text-align: right; color: #374151;
+}
+.dept-emp-table td:first-child { text-align: left; font-weight: 600; color: #111827; }
+.dept-emp-table tbody tr:hover td { background: #f8faff; }
+.dept-emp-table tfoot td {
+    background: #f0f6ff; font-weight: 800; color: #1a3d6b;
+    border-top: 2px solid #dbeafe; border-bottom: none;
+}
+.dept-emp-table tfoot td:first-child { text-align: left; }
+.dt-zero-cell { color: #d1d5db; }
+
+@media (max-width: 768px) {
+    .dept-totals-grid { grid-template-columns: repeat(2, 1fr); }
+    .dept-emp-table { display: block; overflow-x: auto; }
+}
+
+/* ── Empty state ── */
+.no-employees { text-align: center; padding: 3rem; color: #6b7280; }
+.no-employees i { font-size: 2.5rem; color: #d1d5db; margin-bottom: 1rem; display: block; }
+
+@keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse-warn { from { opacity: 1; } to { opacity: .6; } }

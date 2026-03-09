@@ -1,0 +1,43 @@
+/* Styles for employees.php */
+
+.departments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-lg); margin-bottom: var(--space-xl); }
+.department-card { background: var(--white); border-radius: var(--radius-xl); padding: var(--space-xl); box-shadow: var(--shadow-md); cursor: pointer; transition: all var(--transition-base); border: 2px solid transparent; position: relative; overflow: hidden; }
+.department-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--primary-400), var(--primary-600)); }
+.department-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-xl); border-color: var(--primary-300); }
+.department-card.has-employees::before { background: linear-gradient(90deg, var(--success-500), #059669); }
+.department-card.empty::before { background: linear-gradient(90deg, var(--gray-400), var(--gray-500)); }
+.department-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: var(--space-md); }
+.department-icon { width: 56px; height: 56px; border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--primary-100), var(--primary-200)); color: var(--primary-600); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+.department-card.has-employees .department-icon { background: linear-gradient(135deg, var(--success-100), #d1fae5); color: var(--success-500); }
+.department-badge { padding: var(--space-xs) var(--space-sm); background: var(--primary-100); color: var(--primary-700); border-radius: var(--radius-md); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; }
+.department-card-body h3 { font-size: 1.125rem; font-weight: 700; color: var(--gray-900); margin-bottom: var(--space-xs); }
+.department-card-body p { font-size: 0.875rem; color: var(--gray-500); margin-bottom: var(--space-md); min-height: 40px; }
+.department-stats { display: flex; gap: var(--space-lg); padding-top: var(--space-md); border-top: 1px solid var(--gray-100); }
+.department-stat { display: flex; flex-direction: column; }
+.department-stat-value { font-size: 1.25rem; font-weight: 800; color: var(--gray-900); }
+.department-stat-label { font-size: 0.75rem; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.05em; }
+.department-card-arrow { position: absolute; bottom: var(--space-lg); right: var(--space-lg); width: 32px; height: 32px; border-radius: var(--radius-full); background: var(--gray-100); color: var(--gray-500); display: flex; align-items: center; justify-content: center; transition: all var(--transition-base); }
+.department-card:hover .department-card-arrow { background: var(--primary-500); color: var(--white); transform: translateX(4px); }
+.back-link { display: inline-flex; align-items: center; gap: var(--space-sm); color: var(--gray-600); font-weight: 600; margin-bottom: var(--space-lg); transition: color var(--transition-fast); }
+.back-link:hover { color: var(--primary-500); }
+.selected-department-header { background: linear-gradient(135deg, var(--primary-800), var(--primary-900)); color: var(--white); padding: var(--space-xl); border-radius: var(--radius-xl); margin-bottom: var(--space-xl); position: relative; overflow: hidden; }
+.selected-department-header::before { content: ''; position: absolute; top: -50%; right: -10%; width: 300px; height: 300px; background: radial-gradient(circle, rgba(201,162,39,0.15) 0%, transparent 70%); border-radius: 50%; }
+.selected-department-content { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-lg); }
+.selected-department-info { display: flex; align-items: center; gap: var(--space-lg); }
+.selected-department-icon { width: 64px; height: 64px; border-radius: var(--radius-lg); background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 1.75rem; }
+.selected-department-text h2 { font-size: 1.5rem; font-weight: 800; margin-bottom: var(--space-xs); }
+.selected-department-text p { color: var(--primary-200); font-size: 0.9375rem; }
+.selected-department-stats { display: flex; gap: var(--space-xl); }
+.selected-dept-stat { text-align: center; padding: var(--space-md) var(--space-lg); background: rgba(255,255,255,0.1); border-radius: var(--radius-lg); }
+.selected-dept-stat-value { font-size: 1.5rem; font-weight: 800; }
+.selected-dept-stat-label { font-size: 0.75rem; color: var(--primary-200); text-transform: uppercase; letter-spacing: 0.05em; }
+.page-intro { max-width: 600px; margin-bottom: var(--space-xl); }
+.page-intro p { color: var(--gray-600); font-size: 1rem; line-height: 1.6; }
+.action-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 7px; font-size: 0.8rem; font-weight: 700; border: none; cursor: pointer; text-decoration: none; white-space: nowrap; transition: opacity .15s, transform .1s; line-height: 1; }
+.action-btn:hover { opacity: .85; transform: translateY(-1px); }
+.action-btn-view    { background: #dbeafe; color: #1d4ed8; }
+.action-btn-edit    { background: #fef3c7; color: #92400e; }
+.action-btn-payroll { background: #dcfce7; color: #15803d; }
+.action-btn-delete  { background: #fee2e2; color: #b91c1c; }
+.action-btn i { font-size: .75rem; }
+.actions-cell { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }

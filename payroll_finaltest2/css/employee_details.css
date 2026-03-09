@@ -1,0 +1,91 @@
+/* Styles for employee_details.php */
+
+.employee-details-grid {
+    display: flex;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: .5rem;
+}
+
+.details-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.details-card-header {
+    background: linear-gradient(135deg, var(--primary), #4f46e5);
+    color: white;
+    padding: 1rem 1.5rem;
+}
+
+.details-card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.details-card-body {
+    padding: 0;
+}
+
+.details-row {
+    display: flex;
+    grid-template-columns: 140px 1fr;
+    gap: 5.0rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.details-row:last-child {
+    border-bottom: none;
+}
+
+.details-row:hover {
+    background: var(--gray-50);
+}
+
+.details-label {
+    font-weight: 600;
+    color: var(--gray-700);
+    font-size: 0.9rem;
+}
+
+.details-value {
+    color: var(--gray-900);
+    font-size: 0.95rem;
+}
+
+.details-value code {
+    background: var(--gray-200);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.details-value i {
+    color: var(--gray-500);
+    margin-right: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .employee-details-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .details-row {
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+    }
+    
+    .details-label {
+        font-size: 0.85rem;
+    }
+    
+    .details-value {
+        font-size: 0.9rem;
+    }
+}

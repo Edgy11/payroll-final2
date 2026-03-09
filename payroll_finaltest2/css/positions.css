@@ -1,0 +1,4 @@
+/* Styles for positions.php */
+
+.alert-close { background:none; border:none; cursor:pointer; padding:.25rem .5rem; margin-left:auto; color:inherit; opacity:.7; transition:opacity .2s; }
+.alert-close:hover { opacity:1; }

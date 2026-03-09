@@ -1,0 +1,28 @@
+/* Styles for step_inc_history.php */
+
+.emp-grid  { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1.25rem; }
+.emp-label { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--gray-500); margin-bottom:.25rem; }
+.emp-value { font-size:.95rem; font-weight:500; color:var(--gray-900); }
+.step-circle {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:36px; height:36px; border-radius:50%;
+    font-weight:800; font-size:.95rem;
+    background:#e0f2fe; color:#0369a1; border:2px solid #bae6fd; flex-shrink:0;
+}
+.step-circle.is-active { background:linear-gradient(135deg,#f59e0b,#d97706); border-color:#f59e0b; color:#fff; }
+.row-active { background:#fffbeb !important; }
+.row-active td:first-child { box-shadow:inset 4px 0 0 #f59e0b; }
+.sync-bar {
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+    background:#eff6ff; border:2px dashed #93c5fd; border-radius:10px;
+    padding:.875rem 1.25rem; margin-bottom:1.5rem;
+}
+.action-btn { display:inline-block; padding:4px 10px; font-size:.7rem; font-weight:700; border-radius:5px; border:none; cursor:pointer; white-space:nowrap; text-transform:uppercase; letter-spacing:.02em; transition:opacity .15s; }
+.action-btn:hover { opacity:.8; }
+.abtn-warn   { background:#f59e0b; color:#fff; }
+.abtn-danger { background:#ef4444; color:#fff; }
+.data-table thead th, .data-table tbody td { padding:11px 15px; }
+#addModal { z-index:9999 !important; }
+.modal-header { background:#1a3a5c !important; }
+.modal-title  { color:#fff !important; }
+.modal-close  { background:rgba(255,255,255,.15) !important; color:#fff !important; }
